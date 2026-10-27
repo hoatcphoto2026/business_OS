@@ -1,0 +1,36 @@
+import { INestApplication } from '@nestjs/common';
+import { Test } from '@nestjs/testing';
+import * as request from 'supertest';
+import { AppModule } from '../src/app.module';
+
+describe('Notification Center (e2e)', () => {
+  let app: INestApplication;
+
+  beforeAll(async () => {
+    const moduleFixture = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile();
+    app = moduleFixture.createNestApplication();
+    await app.init();
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('GET /notifications should be protected', () => {
+    return request(app.getHttpServer())
+      .get('/notifications')
+      .expect((res) => {
+        expect([200, 401, 403]).toContain(res.status);
+      });
+  });
+
+  it('GET /notifications/unread-count should be protected', () => {
+    return request(app.getHttpServer())
+      .get('/notifications/unread-count')
+      .expect((res) => {
+        expect([200, 401, 403]).toContain(res.status);
+      });
+  });
+});

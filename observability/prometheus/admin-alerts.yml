@@ -1,0 +1,68 @@
+# Administration Center – Prometheus Alert Rules (P0 live)
+
+groups:
+  - name: administration-security
+    rules:
+      - alert: Administration403RatioWarning
+        expr: admin_denied_ratio > 0.05
+        for: 2m
+        labels:
+          severity: warning
+          team: security
+          service: administration
+        annotations:
+          summary: "Admin 403 ratio > 5%"
+          description: "403 ratio is {{ $value | humanizePercentage }} on Administration Center"
+          runbook: "https://internal/runbooks/admin-403"
+
+      - alert: Administration403RatioCritical
+        expr: admin_denied_ratio > 0.20
+        for: 1m
+        labels:
+          severity: critical
+          team: security
+          service: administration
+        annotations:
+          summary: "Critical Admin 403 spike"
+          description: "403 ratio is {{ $value | humanizePercentage }}"
+          runbook: "https://internal/runbooks/admin-403"
+
+      - alert: Administration403Spike
+        expr: increase(admin_403_alerts_total[5m]) > 3
+        for: 1m
+        labels:
+          severity: critical
+          team: security
+        annotations:
+          summary: "Multiple 403 spike alerts fired"
+          runbook: "https://internal/runbooks/admin-403"
+
+      - alert: ApiKeyCreationBurst
+        expr: increase(apikey_created_total[1h]) > 5
+        for: 0m
+        labels:
+          severity: warning
+          team: security
+        annotations:
+          summary: "API key creation burst (>5/hour)"
+          runbook: "https://internal/runbooks/apikey-compromise"
+
+      - alert: ApiKeyCreationDailyHigh
+        expr: increase(apikey_created_total[1d]) > 10
+        for: 0m
+        labels:
+          severity: critical
+          team: security
+        annotations:
+          summary: "API key creation high (>10/day)"
+          runbook: "https://internal/runbooks/apikey-compromise"
+
+      - alert: WebhookDeliveryErrorsHigh
+        expr: increase(webhook_delivery_errors_total[10m]) > 20
+        for: 2m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "High webhook delivery error rate"
+          runbook: "https://internal/runbooks/webhook-failure"

@@ -1,0 +1,22 @@
+# DR Restore Evidence
+
+- **Date**: 2026-10-27
+- **Source database**: `business_os`
+- **Restore database**: `business_os_restore` (isolated; source database was not modified)
+- **Backup file**: `D:\business-os-dr-backups\business_os_20261027_172617.dump`
+- **Backup completed**: 2026-10-27 17:26:19 +07:00
+- **Archive size**: 173,154 bytes
+- **SHA-256**: `F3779C4EA6BDE026DE71D66B9AE8F0412B97CCB6617954A954DB3EA9FF5C79F5`
+- **Restore start/end**: Not separately timed
+- **RTO**: Not measured
+- **RPO**: Logical dump point at backup completion (2026-10-27 17:26:19 +07:00)
+- **Verification**:
+  - [x] `pg_dump` created a custom-format archive
+  - [x] `pg_restore -l` validated the archive
+  - [x] `pg_restore` completed into the isolated restore database
+  - [x] Source and restored database each contain 50 user tables
+  - [x] NestJS Swagger endpoint responded with HTTP 200 using the restored database
+  - [x] Admin login succeeded using the restored database
+  - [x] `GET /api/v1/admin/users` returned HTTP 200 (25 users)
+  - [x] `GET /api/v1/admin/metrics` returned HTTP 200
+- **Notes**: Application verification used a temporary `DB_NAME=business_os_restore` process environment override; `.env` was not changed. The backup is stored outside the repository. The restore database is retained for inspection.
