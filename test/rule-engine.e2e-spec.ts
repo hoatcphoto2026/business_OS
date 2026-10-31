@@ -11,7 +11,6 @@ import { AppModule } from '../src/app.module';
 describe('Rule Engine (e2e)', () => {
   let app: INestApplication;
   let adminToken: string;
-  let ruleId: string;
 
   const PASSWORD = 'Password123!';
 
@@ -66,7 +65,6 @@ describe('Rule Engine (e2e)', () => {
     expect(res.status).toBe(201);
     expect(res.body.id).toBeDefined();
     expect(res.body.code).toBe('USAGE_WARNING');
-    ruleId = res.body.id;
   });
 
   it('GET /rules lists rules', async () => {

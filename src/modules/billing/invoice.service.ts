@@ -180,7 +180,7 @@ export class InvoiceService {
   }
 
   /** Called on subscription renewal to auto-generate an invoice. */
-  async onRenewal(subscriptionId: string, tenantId: string): Promise<BillingInvoice | null> {
+  async onRenewal(subscriptionId: string, _tenantId: string): Promise<BillingInvoice | null> {
     try {
       return await this.generate({ subscriptionId });
     } catch (e) {

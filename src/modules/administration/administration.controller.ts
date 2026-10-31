@@ -9,7 +9,6 @@ import {
   UseGuards,
   UseInterceptors,
   Req,
-  Headers,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../common/guards/tenant.guard';

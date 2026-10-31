@@ -30,7 +30,6 @@ export async function seedFeatures(
 ): Promise<void> {
   const featureRepo = dataSource.getRepository(Feature);
   const tfRepo = dataSource.getRepository(TenantFeature);
-  const tenantRepo = dataSource.getRepository('tenants');
 
   // Catalog
   for (const item of CATALOG) {
@@ -48,7 +47,6 @@ export async function seedFeatures(
   }
 
   const allFeatures = await featureRepo.find();
-  const byCode = new Map(allFeatures.map((f) => [f.code, f]));
 
   async function apply(tenantCode: string, plan: PlanCode) {
     const tenant = await dataSource.getRepository('tenants').findOne({ where: { code: tenantCode } }) as { id: string } | null;

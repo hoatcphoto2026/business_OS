@@ -2,23 +2,62 @@ import './tracing';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 
-async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
-  const logger = new Logger('Bootstrap');
-  const isProd = process.env.NODE_ENV === 'production';
-  // P0/P1: refuse to boot in production with default secrets
-  if (isProd) {
-    const required = ['JWT_SECRET', 'BANKING_WEBHOOK_SECRET', 'PAYMENT_WEBHOOK_SECRET'];
-    for (const key of required) {
-      const v = process.env[key];
-      if (!v || v.length < 32) {
-        throw new Error(`${key} must be at least 32 characters in production`);
-      }
+/**
+ * Fail-fast production checks – runs BEFORE the Nest app connects to the DB,
+ * so a misconfigured deployment never half-boots.
+ */
+function assertProductionSafety(isProd: boolean, logger: Logger): void {
+  if (!isProd) return;
+
+  const required = [
+    'JWT_SECRET',
+    'BANKING_WEBHOOK_SECRET',
+    'PAYMENT_WEBHOOK_SECRET',
+  ];
+  for (const key of required) {
+    const value = process.env[key];
+    if (!value || value.length < 32) {
+      throw new Error(`${key} must be at least 32 characters in production`);
     }
   }
+
+  // Danger switches must never be enabled in production.
+  const forbidden: Array<[string, string]> = [
+    ['SKIP_STEP_UP', 'step-up verification must stay enabled'],
+    ['ALLOW_MOCK_PAYMENTS', 'mock payment gateway must be disabled'],
+  ];
+  for (const [key, reason] of forbidden) {
+    if (process.env[key] === 'true') {
+      throw new Error(`${key} is not allowed in production: ${reason}`);
+    }
+  }
+
+  if (!process.env.CORS_ORIGIN) {
+    logger.warn('CORS_ORIGIN is not set – CORS is disabled in production');
+  }
+}
+
+async function bootstrap() {
+  const logger = new Logger('Bootstrap');
+  const isProd = process.env.NODE_ENV === 'production';
+
+  assertProductionSafety(isProd, logger);
+
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    bodyParser: false,
+  });
+
+  // Graceful shutdown (SIGTERM/SIGINT) for containers/orchestrators.
+  app.enableShutdownHooks();
+
+  // Request body limits (default 1mb) – configurable per deployment.
+  const bodyLimit = process.env.BODY_LIMIT || '1mb';
+  app.useBodyParser('json', { limit: bodyLimit });
+  app.useBodyParser('urlencoded', { limit: bodyLimit, extended: true });
 
 
   // Security headers (helmet). CSP is disabled outside production so the
@@ -51,7 +90,9 @@ async function bootstrap() {
     }),
   );
 
-  app.setGlobalPrefix('api/v1');
+  app.setGlobalPrefix('api/v1', {
+    exclude: ['health', 'health/ready'],
+  });
 
   // Swagger only outside production
   if (!isProd) {

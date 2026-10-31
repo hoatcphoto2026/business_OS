@@ -21,9 +21,6 @@ describe('Organization Isolation (e2e)', () => {
   let tokenHanoi: string;
   let tokenManager: string;
 
-  let companyId: string;
-  let branchHCMId: string;
-  let branchHanoiId: string;
   let customerHCMId: string | undefined;
 
   beforeAll(async () => {

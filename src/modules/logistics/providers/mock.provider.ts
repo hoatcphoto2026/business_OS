@@ -5,7 +5,7 @@ import { CarrierProvider, ShipmentRequest, ShipmentResult, TrackingResult } from
 export class MockCarrierProvider implements CarrierProvider {
   code = 'MOCK';
 
-  async createShipment(req: ShipmentRequest): Promise<ShipmentResult> {
+  async createShipment(_req: ShipmentRequest): Promise<ShipmentResult> {
     const shippingNo = `MOCK${Date.now().toString(36).toUpperCase()}`;
     return { shippingNo, fee: 25000, estimatedDays: 2 };
   }

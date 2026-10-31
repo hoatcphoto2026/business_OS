@@ -662,7 +662,7 @@ they never delete their rows. Two helpers keep the database predictable.
 ### 0. One command (dùng trước khi tạo PR)
 
 ```bash
-npm run verify        # lint → build → unit → full e2e trên DB tạm (41 suites / 171 tests)
+npm run verify        # lint → build → unit → full e2e trên DB tạm (42 suites / 174 tests)
 npm run verify:fast   # lint + build + unit (khi sửa nhỏ)
 ```
 
@@ -706,7 +706,7 @@ Demo subscription/plan baseline is restored by `npm run seed`
 ```
 npm ci → npm run lint:check → npm run build → npm test -- --runInBand
        → npm run migration:run → npm run seed
-       → npm run test:e2e -- --runInBand   # FULL suite (41 suites / 171 tests)
+       → npm run test:e2e -- --runInBand   # FULL suite (42 suites / 174 tests)
 ```
 
 ### 4. Production hardening (đã bật)
@@ -714,9 +714,14 @@ npm ci → npm run lint:check → npm run build → npm test -- --runInBand
 | Lớp | Cấu hình |
 |---|---|
 | Security headers | `helmet` trong `src/main.ts` (CSP tắt ở dev để Swagger UI chạy, bật default ở production) |
+| Health probes | `GET /health` (liveness) và `GET /health/ready` (DB ping) — public, không qua prefix, `@SkipThrottle` |
 | Rate limit toàn cục | `ThrottlerGuard` (APP_GUARD): `THROTTLE_TTL_MS` (mặc định 60000) × `THROTTLE_LIMIT` (mặc định 300) / IP |
+| Rate limit login | `POST /api/v1/auth/login`: **10 request / phút / IP** |
 | Rate limit admin | `AdminRateLimitGuard`: `ADMIN_MUTATE_LIMIT` (mặc định 30 mutation/phút/admin) |
+| Body size | `BODY_LIMIT` (mặc định `1mb`) cho json + urlencoded |
 | Secret bắt buộc | `JWT_SECRET`, `BANKING_WEBHOOK_SECRET`, `PAYMENT_WEBHOOK_SECRET` ≥ 32 ký tự khi `NODE_ENV=production` (fail-closed) |
+| Prod guards | Từ chối boot nếu `SKIP_STEP_UP=true` hoặc `ALLOW_MOCK_PAYMENTS=true`; cảnh báo khi thiếu `CORS_ORIGIN` |
+| Graceful shutdown | `app.enableShutdownHooks()` (SIGTERM/SIGINT) |
 | CORS | `CORS_ORIGIN` danh sách phẩy; production mà unset ⇒ CORS tắt |
 | Proxy | `TRUST_PROXY=<số hop>` khi chạy sau nginx/ALB để rate-limit theo IP thật |
 

@@ -8,7 +8,6 @@ import { Branch } from '../../modules/organization/entities/branch.entity';
 import { Department } from '../../modules/organization/entities/department.entity';
 import { UserCompany } from '../../modules/organization/entities/user-company.entity';
 import { UserBranch } from '../../modules/organization/entities/user-branch.entity';
-import { UserDepartment } from '../../modules/organization/entities/user-department.entity';
 import { Customer } from '../../modules/customers/entities/customer.entity';
 
 /**
@@ -39,7 +38,6 @@ export async function seedOrganization(dataSource: DataSource): Promise<void> {
   const deptRepo = dataSource.getRepository(Department);
   const userCompanyRepo = dataSource.getRepository(UserCompany);
   const userBranchRepo = dataSource.getRepository(UserBranch);
-  const userDeptRepo = dataSource.getRepository(UserDepartment);
   const customerRepo = dataSource.getRepository(Customer);
 
   const passwordHash = await bcrypt.hash('Password123!', 10);
@@ -107,11 +105,11 @@ export async function seedOrganization(dataSource: DataSource): Promise<void> {
     return d;
   }
 
-  const deptSalesHCM = await ensureDept(branchHCM, 'SALES', 'Sales');
-  const deptWhHCM = await ensureDept(branchHCM, 'WAREHOUSE', 'Warehouse');
-  const deptAccHCM = await ensureDept(branchHCM, 'ACCOUNTING', 'Accounting');
-  const deptSalesHN = await ensureDept(branchHN, 'SALES', 'Sales');
-  const deptWhHN = await ensureDept(branchHN, 'WAREHOUSE', 'Warehouse');
+  await ensureDept(branchHCM, 'SALES', 'Sales');
+  await ensureDept(branchHCM, 'WAREHOUSE', 'Warehouse');
+  await ensureDept(branchHCM, 'ACCOUNTING', 'Accounting');
+  await ensureDept(branchHN, 'SALES', 'Sales');
+  await ensureDept(branchHN, 'WAREHOUSE', 'Warehouse');
 
   // Users
   async function ensureUser(email: string, fullName: string) {

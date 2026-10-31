@@ -1,4 +1,4 @@
-import { Entity, Column, Index } from 'typeorm';
+import { Entity, Column } from 'typeorm';
 import { BaseTenantEntity } from '../../../common/entities/base.entity';
 
 @Entity('webhooks')

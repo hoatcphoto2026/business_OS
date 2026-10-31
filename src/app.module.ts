@@ -11,6 +11,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 
 import { TenantModule } from './modules/tenant/tenant.module';
+import { HealthModule } from './modules/health/health.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { CustomersModule } from './modules/customers/customers.module';
 import { OrganizationModule } from './modules/organization/organization.module';
@@ -279,6 +280,7 @@ import { PaymentTransaction } from './modules/billing/entities/payment-transacti
       }),
     }),
     TenantModule,
+    HealthModule,
     AuthModule,
     CustomersModule,
     OrganizationModule,

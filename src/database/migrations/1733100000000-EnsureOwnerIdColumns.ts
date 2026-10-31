@@ -30,7 +30,7 @@ export class EnsureOwnerIdColumns1733100000000 implements MigrationInterface {
     }
   }
 
-  public async down(queryRunner: QueryRunner): Promise<void> {
+  public async down(_queryRunner: QueryRunner): Promise<void> {
     // Intentionally no-op: owner_id is part of the scope model.
   }
 }

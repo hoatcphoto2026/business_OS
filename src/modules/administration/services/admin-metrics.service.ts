@@ -9,13 +9,6 @@ interface Sample {
   path?: string;
 }
 
-interface Counter {
-  name: string;
-  help: string;
-  value: number;
-  labels?: Record<string, string>;
-}
-
 @Injectable()
 export class AdminMetricsService {
   private readonly logger = new Logger('AdminMetrics');

@@ -113,7 +113,6 @@ export async function seedRbac(dataSource: DataSource): Promise<void> {
   const userAdmin = await userRepo.findOne({ where: { email: 'admin@abctrading.vn' } });
 
   const salesRole = await roleRepo.findOne({ where: { tenantId: tenant.id, code: 'sales' } });
-  const warehouseRole = await roleRepo.findOne({ where: { tenantId: tenant.id, code: 'warehouse' } });
   const managerRole = await roleRepo.findOne({ where: { tenantId: tenant.id, code: 'manager' } });
   const adminRole = await roleRepo.findOne({ where: { tenantId: tenant.id, code: 'admin' } });
 

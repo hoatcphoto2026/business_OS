@@ -51,7 +51,7 @@ npm run verify          # lint + build + unit + isolated e2e
 - [ ] `npm run lint:check` — no **errors** (`__ warnings`)
 - [ ] `npm run build` — OK
 - [ ] `npm test -- --runInBand` — `__ suites / __ tests passed`
-- [ ] `npm run test:e2e:isolated` — `__ suites / __ tests passed` (baseline: 41/171 as of 2026-10-31)
+- [ ] `npm run test:e2e:isolated` — `__ suites / __ tests passed` (baseline: 42/174 as of 2026-10-31)
 - [ ] Re-ran with `NODE_ENV=test` (required if auth / guard / billing / seed changed) — OK
 - [ ] Login smoke: `admin@abctrading.vn` / `Password123!` / `ABC` → 200 + accessToken
 

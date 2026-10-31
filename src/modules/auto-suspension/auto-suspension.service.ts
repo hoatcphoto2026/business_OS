@@ -2,7 +2,7 @@ import { Injectable, Logger, ForbiddenException, NotFoundException } from '@nest
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { SuspensionRecord } from './entities/suspension-record.entity';
-import { SuspensionTrigger, SuspensionStatus } from './enums/suspension.enum';
+import { SuspensionStatus } from './enums/suspension.enum';
 import { TriggerSuspensionDto } from './dto/trigger-suspension.dto';
 import { Tenant } from '../tenant/entities/tenant.entity';
 import { TenantStatus } from '../tenant/entities/tenant.entity';

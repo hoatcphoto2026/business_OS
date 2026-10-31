@@ -46,7 +46,7 @@ export class FixSalesOrderStatusColumn1734100000000 implements MigrationInterfac
     }
   }
 
-  public async down(queryRunner: QueryRunner): Promise<void> {
+  public async down(_queryRunner: QueryRunner): Promise<void> {
     // No automatic reverse – varchar is the desired state
   }
 }

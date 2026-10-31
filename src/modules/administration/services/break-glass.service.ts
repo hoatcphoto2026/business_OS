@@ -1,6 +1,4 @@
 import { Injectable, Logger, ForbiddenException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 
 /**
  * P2 – Break-Glass Dual-Control

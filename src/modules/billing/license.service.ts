@@ -3,7 +3,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Subscription } from './entities/subscription.entity';
 import { PlanFeature } from './entities/plan-feature.entity';
-import { Plan } from './entities/plan.entity';
 import {
   SubscriptionStatus,
   PlanFeatureCode,

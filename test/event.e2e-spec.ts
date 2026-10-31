@@ -23,7 +23,6 @@ describe('Event Bus foundation (e2e)', () => {
   let managerToken: string;
   let cafeToken: string;
   let abcTenantId: string;
-  let cafeTenantId: string;
   let eventBus: EventBus;
   let customerSub: CustomerSubscriber;
   let salesSub: SalesSubscriber;
@@ -61,7 +60,6 @@ describe('Event Bus foundation (e2e)', () => {
     managerToken = manager.accessToken;
     cafeToken = cafe.accessToken;
     abcTenantId = sales.tenant?.id ?? sales.user?.tenantId;
-    cafeTenantId = cafe.tenant?.id ?? cafe.user?.tenantId;
   });
 
   afterAll(async () => {

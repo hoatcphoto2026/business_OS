@@ -55,16 +55,20 @@ Thêm bảng/feature mới ⇒ cập nhật seeder tương ứng, đừng để 
 
 ### 1.7 Hardening (đã bật, giữ nguyên)
 - `helmet` bật trong `src/main.ts` (CSP tắt ở dev cho Swagger UI, bật ở production).
+- **Health probes**: `GET /health`, `GET /health/ready` — public, `@SkipThrottle`, không nằm dưới prefix `api/v1`.
 - `ThrottlerGuard` là `APP_GUARD` toàn cục: `THROTTLE_TTL_MS` × `THROTTLE_LIMIT` theo IP.
+  `POST /auth/login` bị giới hạn chặt hơn: **10 request/phút/IP**.
   Endpoint public mới cân nhắc `@Throttle` chặt hơn hoặc `@SkipThrottle` (có lý do rõ ràng).
-- Production **fail-closed**: `JWT_SECRET`, `BANKING_WEBHOOK_SECRET`, `PAYMENT_WEBHOOK_SECRET` ≥ 32 ký tự.
+- `BODY_LIMIT` (mặc định 1mb) cho json/urlencoded; `app.enableShutdownHooks()`.
+- Production **fail-closed**: `JWT_SECRET`, `BANKING_WEBHOOK_SECRET`, `PAYMENT_WEBHOOK_SECRET` ≥ 32 ký tự;
+  từ chối boot khi `SKIP_STEP_UP=true` hoặc `ALLOW_MOCK_PAYMENTS=true`.
 - Chạy sau proxy/LB ⇒ phải set `TRUST_PROXY` để rate limit dùng IP thật.
 
 ---
 
 ## 2. Definition of Done — verify trước khi báo "xong"
 
-- [ ] `npm run verify` → lint + build + unit + e2e isolated (baseline hiện tại: **41 suites / 171 tests PASS**)
+- [ ] `npm run verify` → lint + build + unit + e2e isolated (baseline hiện tại: **42 suites / 174 tests PASS**)
 - [ ] Sửa nhỏ thì chạy nhanh `npm run verify:fast` (lint + build + unit)
 - [ ] Muốn xem warning của lint: `npm run lint:check` (CI fail khi có **error**, warning không chặn)
 - [ ] Nếu chạm auth / guard / billing / seed: chạy lại với `NODE_ENV=test` (parity CI)
