@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { createHmac, randomBytes, randomUUID, timingSafeEqual } from 'crypto';
+import { createHmac, createPublicKey, randomBytes, randomUUID, timingSafeEqual, verify as cryptoVerify } from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { IdentityProvider } from './entities/identity-provider.entity';
 import { IdentityMapping } from './entities/identity-mapping.entity';
@@ -27,11 +27,44 @@ import { AuditAction } from '../audit/enums/audit-action.enum';
 
 const GOOGLE_ISSUER = 'https://accounts.google.com';
 const SESSION_TTL_MS = 15 * 60 * 1000;
+const JWKS_TTL_MS = 10 * 60 * 1000;
+const RSA_ALGS: Record<string, string> = {
+  RS256: 'RSA-SHA256',
+  RS384: 'RSA-SHA384',
+  RS512: 'RSA-SHA512',
+};
+
+interface JwkKey {
+  kty?: string;
+  kid?: string;
+  use?: string;
+  alg?: string;
+  n?: string;
+  e?: string;
+}
+
+interface IdTokenHeader {
+  alg?: string;
+  kid?: string;
+  typ?: string;
+}
+
+interface IdTokenClaims {
+  sub?: string;
+  email?: string;
+  name?: string;
+  iss?: string;
+  aud?: string | string[];
+  exp?: number;
+  nonce?: string;
+}
 
 @Injectable()
 export class IdentityService {
   private readonly logger = new Logger(IdentityService.name);
   private readonly counters = new Map<string, number>();
+  /** issuer -> JWKS keys (cached to avoid fetching on every login). */
+  private readonly jwksCache = new Map<string, { keys: JwkKey[]; fetchedAt: number }>();
 
   constructor(
     @InjectRepository(IdentityProvider)
@@ -181,10 +214,15 @@ export class IdentityService {
     if (provider.type === IdentityProviderType.SAML) {
       throw new BadRequestException('SAML assertion consumer is not enabled');
     }
-    if (!dto.idToken) {
-      throw new BadRequestException('idToken is required to complete the OIDC login');
+    if (!dto.idToken && !dto.code) {
+      throw new BadRequestException('code or idToken is required to complete the OIDC login');
     }
-    const claims = this.verifyIdToken(dto.idToken, provider, session.nonce);
+    // Prefer the authorization code: the exchange happens server-side, so the
+    // client secret never leaves the backend.
+    const idToken = dto.code
+      ? await this.exchangeCode(provider, dto.code)
+      : (dto.idToken as string);
+    const claims = await this.verifyIdToken(idToken, provider, session.nonce);
     const tenant = await this.tenants.findOne({ where: { id: provider.tenantId } });
     if (!tenant) throw new NotFoundException('Tenant not found');
 
@@ -309,34 +347,164 @@ export class IdentityService {
     return { user, membership, createdUser, createdMembership, assignedRole };
   }
 
-  private verifyIdToken(token: string, provider: IdentityProvider, nonce: string) {
+  /**
+   * Verify an OIDC id_token.
+   *
+   * - RS256/384/512 (Google, Entra, any compliant OIDC IdP): verified against
+   *   the provider JWKS (cached, key selected by `kid`, refreshed on rotation).
+   * - HS256: kept for internal/mock providers where the client secret is shared
+   *   with the backend only. Real IdPs never sign id_tokens with it.
+   */
+  private async verifyIdToken(
+    token: string,
+    provider: IdentityProvider,
+    nonce: string,
+  ): Promise<{ sub: string; email: string; name?: string }> {
     const parts = token.split('.');
     if (parts.length !== 3) throw new UnauthorizedException('Invalid id_token');
     const [headerPart, bodyPart, signature] = parts;
-    const header = JSON.parse(Buffer.from(headerPart, 'base64url').toString('utf8')) as { alg?: string };
-    if (header.alg !== 'HS256') throw new UnauthorizedException('Unsupported id_token algorithm');
-    const expected = createHmac('sha256', provider.clientSecret).update(`${headerPart}.${bodyPart}`).digest('base64url');
-    const actual = Buffer.from(signature);
-    const wanted = Buffer.from(expected);
-    if (actual.length !== wanted.length || !timingSafeEqual(actual, wanted)) {
-      throw new UnauthorizedException('Invalid id_token signature');
+    const header = JSON.parse(
+      Buffer.from(headerPart, 'base64url').toString('utf8'),
+    ) as IdTokenHeader;
+    const alg = header.alg ?? '';
+    const signingInput = `${headerPart}.${bodyPart}`;
+    const signatureBuffer = Buffer.from(signature, 'base64url');
+
+    if (alg === 'HS256') {
+      const expected = createHmac('sha256', provider.clientSecret)
+        .update(signingInput)
+        .digest();
+      if (
+        signatureBuffer.length !== expected.length ||
+        !timingSafeEqual(signatureBuffer, expected)
+      ) {
+        throw new UnauthorizedException('Invalid id_token signature');
+      }
+    } else if (RSA_ALGS[alg]) {
+      const jwk = await this.findSigningKey(provider, header.kid);
+      let verified = false;
+      try {
+        const publicKey = createPublicKey({ key: jwk as never, format: 'jwk' });
+        verified = cryptoVerify(
+          RSA_ALGS[alg],
+          Buffer.from(signingInput),
+          publicKey,
+          signatureBuffer,
+        );
+      } catch {
+        verified = false;
+      }
+      if (!verified) throw new UnauthorizedException('Invalid id_token signature');
+    } else {
+      throw new UnauthorizedException('Unsupported id_token algorithm');
     }
-    const claims = JSON.parse(Buffer.from(bodyPart, 'base64url').toString('utf8')) as {
-      sub?: string;
-      email?: string;
-      name?: string;
-      iss?: string;
-      aud?: string | string[];
-      exp?: number;
-      nonce?: string;
-    };
+
+    const claims = JSON.parse(
+      Buffer.from(bodyPart, 'base64url').toString('utf8'),
+    ) as IdTokenClaims;
     const audience = Array.isArray(claims.aud) ? claims.aud : [claims.aud];
-    if (!claims.sub || !claims.email) throw new UnauthorizedException('id_token is missing sub or email');
-    if (claims.iss !== provider.issuer) throw new UnauthorizedException('id_token issuer does not match the provider');
-    if (!audience.includes(provider.clientId)) throw new UnauthorizedException('id_token audience does not match the provider');
-    if (claims.nonce !== nonce) throw new UnauthorizedException('id_token nonce does not match the login session');
-    if (!claims.exp || claims.exp * 1000 < Date.now()) throw new UnauthorizedException('id_token has expired');
+    if (!claims.sub || !claims.email) {
+      throw new UnauthorizedException('id_token is missing sub or email');
+    }
+    if (claims.iss !== provider.issuer) {
+      throw new UnauthorizedException('id_token issuer does not match the provider');
+    }
+    if (!audience.includes(provider.clientId)) {
+      throw new UnauthorizedException('id_token audience does not match the provider');
+    }
+    if (claims.nonce !== nonce) {
+      throw new UnauthorizedException('id_token nonce does not match the login session');
+    }
+    if (!claims.exp || claims.exp * 1000 < Date.now()) {
+      throw new UnauthorizedException('id_token has expired');
+    }
     return { sub: claims.sub, email: claims.email, name: claims.name };
+  }
+
+  /** Exchange the authorization code at the provider token endpoint (server-side). */
+  private async exchangeCode(provider: IdentityProvider, code: string): Promise<string> {
+    const endpoints = this.endpoints(provider);
+    const body = new URLSearchParams({
+      grant_type: 'authorization_code',
+      code,
+      client_id: provider.clientId,
+      client_secret: provider.clientSecret,
+      redirect_uri: provider.redirectUri,
+    });
+
+    let response: Response;
+    try {
+      response = await fetch(endpoints.token, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/x-www-form-urlencoded',
+          accept: 'application/json',
+        },
+        body: body.toString(),
+      });
+    } catch (err) {
+      this.logger.warn(`Token exchange request failed: ${(err as Error).message}`);
+      throw new UnauthorizedException(
+        'Unable to reach the identity provider token endpoint',
+      );
+    }
+    if (!response.ok) {
+      throw new UnauthorizedException('Authorization code exchange failed');
+    }
+    const payload = (await response.json()) as { id_token?: string };
+    if (!payload.id_token) {
+      throw new UnauthorizedException('Token endpoint did not return an id_token');
+    }
+    return payload.id_token;
+  }
+
+  private async findSigningKey(
+    provider: IdentityProvider,
+    kid?: string,
+  ): Promise<Record<string, unknown>> {
+    const jwksUri = this.endpoints(provider).jwks;
+    let keys = await this.fetchJwks(jwksUri);
+    let match = this.pickKey(keys, kid);
+    if (!match) {
+      // Key rotation: refresh the cache once before giving up.
+      this.jwksCache.delete(jwksUri);
+      keys = await this.fetchJwks(jwksUri);
+      match = this.pickKey(keys, kid);
+    }
+    if (!match) {
+      throw new UnauthorizedException('No matching JWKS key for the id_token');
+    }
+    return match;
+  }
+
+  private pickKey(keys: JwkKey[], kid?: string): Record<string, unknown> | null {
+    const rsaKeys = keys.filter((key) => key.kty === 'RSA' && key.n && key.e);
+    const selected = kid
+      ? rsaKeys.find((key) => key.kid === kid)
+      : rsaKeys[0];
+    return (selected as Record<string, unknown> | undefined) ?? null;
+  }
+
+  private async fetchJwks(jwksUri: string): Promise<JwkKey[]> {
+    const cached = this.jwksCache.get(jwksUri);
+    if (cached && Date.now() - cached.fetchedAt < JWKS_TTL_MS) {
+      return cached.keys;
+    }
+
+    let response: Response;
+    try {
+      response = await fetch(jwksUri, { headers: { accept: 'application/json' } });
+    } catch (err) {
+      this.logger.warn(`JWKS fetch failed: ${(err as Error).message}`);
+      throw new UnauthorizedException('Unable to fetch the identity provider JWKS');
+    }
+    if (!response.ok) {
+      throw new UnauthorizedException('Unable to fetch the identity provider JWKS');
+    }
+    const payload = (await response.json()) as { keys?: JwkKey[] };
+    const keys = payload.keys ?? [];
+    this.jwksCache.set(jwksUri, { keys, fetchedAt: Date.now() });
+    return keys;
   }
 
   private async findProvider(code: string, tenantCode: string) {

@@ -2,7 +2,8 @@
  * C3 Enterprise Identity.
  * Requires migration:run and seed. No global prefix, same as the other e2e suites.
  */
-import { createHmac } from 'crypto';
+import { createHmac, generateKeyPairSync, sign as cryptoSign } from 'crypto';
+import type { KeyObject } from 'crypto';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import * as request from 'supertest';
@@ -14,6 +15,31 @@ function signIdToken(payload: Record<string, unknown>, secret: string): string {
   const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
   const signature = createHmac('sha256', secret).update(`${header}.${body}`).digest('base64url');
   return `${header}.${body}.${signature}`;
+}
+
+/** RS256 id_token – same shape Google/Entra emit (signed with a private key). */
+function signRsaIdToken(
+  payload: Record<string, unknown>,
+  privateKey: KeyObject,
+  kid: string,
+): string {
+  const header = Buffer.from(
+    JSON.stringify({ alg: 'RS256', typ: 'JWT', kid }),
+  ).toString('base64url');
+  const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
+  const signature = cryptoSign(
+    'RSA-SHA256',
+    Buffer.from(`${header}.${body}`),
+    privateKey,
+  ).toString('base64url');
+  return `${header}.${body}.${signature}`;
+}
+
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'content-type': 'application/json' },
+  });
 }
 
 describe('Enterprise Identity (e2e)', () => {
@@ -267,5 +293,170 @@ describe('Enterprise Identity (e2e)', () => {
       [done.body.user.id],
     );
     expect(roles.map((row: { code: string }) => row.code)).toContain('sales');
+  });
+
+  it('verifies RS256 id_tokens against the provider JWKS (Google/Entra style)', async () => {
+    const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+    const kid = `kid-${stamp}`;
+    const jwk = publicKey.export({ format: 'jwk' }) as Record<string, unknown>;
+    const issuer = `https://idp-${stamp}.example.com`;
+    const clientId = `client-rs256-${stamp}`;
+
+    const provider = await createProvider({
+      code: `rs256-${stamp}`,
+      name: 'RS256 OIDC',
+      type: 'OIDC',
+      issuer,
+      clientId,
+      clientSecret: secret,
+      redirectUri: 'https://app.example/callback',
+    });
+
+    const fetchMock = jest
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation((async (input: any) => {
+        const url = typeof input === 'string' ? input : String(input);
+        if (url === `${issuer}/jwks`) {
+          return jsonResponse({ keys: [{ ...jwk, kid, alg: 'RS256', use: 'sig' }] });
+        }
+        return new Response('not found', { status: 404 });
+      }) as any);
+
+    try {
+      const started = await request(app.getHttpServer())
+        .get(`/identity/login/${provider.code}`)
+        .query({ tenant: 'ABC' })
+        .expect(200);
+      const nonce = new URL(started.body.authorizationUrl).searchParams.get('nonce') as string;
+      const email = `rs256-${stamp}@example.com`;
+
+      const done = await request(app.getHttpServer())
+        .post('/identity/callback')
+        .send({
+          state: started.body.state,
+          idToken: signRsaIdToken(
+            {
+              sub: `rs256-sub-${stamp}`,
+              email,
+              iss: issuer,
+              aud: clientId,
+              nonce,
+              exp: Math.floor(Date.now() / 1000) + 300,
+            },
+            privateKey,
+            kid,
+          ),
+        })
+        .expect(201);
+      expect(done.body.accessToken).toEqual(expect.any(String));
+      expect(done.body.user.email).toBe(email);
+      expect(done.body.sso.createdUser).toBe(true);
+
+      // Tampered signature must be rejected even with valid claims.
+      const badStart = await request(app.getHttpServer())
+        .get(`/identity/login/${provider.code}`)
+        .query({ tenant: 'ABC' })
+        .expect(200);
+      const badNonce = new URL(badStart.body.authorizationUrl).searchParams.get('nonce') as string;
+      const goodToken = signRsaIdToken(
+        {
+          sub: `rs256-sub-${stamp}`,
+          email,
+          iss: issuer,
+          aud: clientId,
+          nonce: badNonce,
+          exp: Math.floor(Date.now() / 1000) + 300,
+        },
+        privateKey,
+        kid,
+      );
+      const tampered = `${goodToken.slice(0, -4)}AAAA`;
+      await request(app.getHttpServer())
+        .post('/identity/callback')
+        .send({ state: badStart.body.state, idToken: tampered })
+        .expect(401);
+    } finally {
+      fetchMock.mockRestore();
+    }
+  });
+
+  it('exchanges an authorization code server-side and verifies the returned id_token', async () => {
+    const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+    const kid = `kid-code-${stamp}`;
+    const jwk = publicKey.export({ format: 'jwk' }) as Record<string, unknown>;
+    const issuer = `https://code-idp-${stamp}.example.com`;
+    const clientId = `client-code-${stamp}`;
+    const email = `code-${stamp}@example.com`;
+
+    const provider = await createProvider({
+      code: `code-${stamp}`,
+      name: 'Code exchange OIDC',
+      type: 'OIDC',
+      issuer,
+      clientId,
+      clientSecret: secret,
+      redirectUri: 'https://app.example/callback',
+    });
+
+    let issuedNonce = '';
+    const tokenRequests: string[] = [];
+
+    const fetchMock = jest
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation((async (input: any, init?: any) => {
+        const url = typeof input === 'string' ? input : String(input);
+        if (url === `${issuer}/jwks`) {
+          return jsonResponse({
+            keys: [{ ...jwk, kid, alg: 'RS256', use: 'sig' }],
+          });
+        }
+        if (url === `${issuer}/token` && init?.method === 'POST') {
+          tokenRequests.push(String(init.body ?? ''));
+          return jsonResponse({
+            token_type: 'Bearer',
+            id_token: signRsaIdToken(
+              {
+                sub: `code-sub-${stamp}`,
+                email,
+                iss: issuer,
+                aud: clientId,
+                nonce: issuedNonce,
+                exp: Math.floor(Date.now() / 1000) + 300,
+              },
+              privateKey,
+              kid,
+            ),
+          });
+        }
+        return new Response('not found', { status: 404 });
+      }) as any);
+
+    try {
+      const started = await request(app.getHttpServer())
+        .get(`/identity/login/${provider.code}`)
+        .query({ tenant: 'ABC' })
+        .expect(200);
+      issuedNonce = new URL(started.body.authorizationUrl).searchParams.get('nonce') as string;
+
+      const done = await request(app.getHttpServer())
+        .post('/identity/callback')
+        .send({ state: started.body.state, code: 'auth-code-123' })
+        .expect(201);
+
+      expect(done.body.accessToken).toEqual(expect.any(String));
+      expect(done.body.user.email).toBe(email);
+      expect(tokenRequests).toHaveLength(1);
+      expect(tokenRequests[0]).toContain('grant_type=authorization_code');
+      expect(tokenRequests[0]).toContain('code=auth-code-123');
+      expect(tokenRequests[0]).toContain(`client_id=${clientId}`);
+
+      // The same state cannot be replayed once the session is completed.
+      await request(app.getHttpServer())
+        .post('/identity/callback')
+        .send({ state: started.body.state, code: 'auth-code-123' })
+        .expect(401);
+    } finally {
+      fetchMock.mockRestore();
+    }
   });
 });
