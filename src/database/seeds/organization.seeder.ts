@@ -138,6 +138,10 @@ export async function seedOrganization(dataSource: DataSource): Promise<void> {
         status: MembershipStatus.ACTIVE,
       });
       m = await membershipRepo.save(m);
+    } else if (m.status !== MembershipStatus.ACTIVE) {
+      // Force active for demo users (previous offboarding/tests may have suspended them)
+      m.status = MembershipStatus.ACTIVE;
+      m = await membershipRepo.save(m);
     }
     return m;
   }

@@ -211,7 +211,11 @@ export class WorkflowEngineService {
     // RBAC check
     const required = this.requiredPermission(instance.entityType, action);
     if (required) {
-      const allowed = await this.authorization.hasPermission(userId, required);
+      const allowed = await this.authorization.hasPermission(
+        userId,
+        required,
+        instance.tenantId,
+      );
       if (!allowed) {
         throw new ForbiddenException(
           `Permission '${required}' required for ${action} on ${instance.entityType}`,

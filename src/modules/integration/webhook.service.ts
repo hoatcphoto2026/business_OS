@@ -78,7 +78,7 @@ export class WebhookService {
       .createQueryBuilder('w')
       .where('w.tenant_id = :tenantId', { tenantId })
       .andWhere('w.status = :status', { status: 'active' })
-      .andWhere(':event = ANY(w.events)', { event })
+      .andWhere('w.events @> :eventJson', { eventJson: JSON.stringify([event]) })
       .getMany();
   }
 }

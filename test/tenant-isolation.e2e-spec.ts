@@ -127,6 +127,17 @@ describe('Tenant Isolation (e2e)', () => {
 
   // ─── CASE 6 ─────────────────────────────────────────────────
   it('CASE 6: Multi-tenant user can switch tenant', async () => {
+    // Self-heal multi user membership on both tenants
+    try {
+      await dataSource.query(`
+        UPDATE tenant_users tu
+        SET status = 'active'
+        FROM users u
+        WHERE tu.user_id = u.id
+          AND u.email = 'multi@businessos.vn'
+          AND tu.status <> 'active'
+      `);
+    } catch {}
     // Login without tenant → should get requiresTenantSelection
     const multiLogin = await request(app.getHttpServer())
       .post('/api/v1/auth/login')

@@ -68,6 +68,21 @@ export enum EventType {
   ApiKeyCreated = 'ApiKeyCreated',
   WebhookCreated = 'WebhookCreated',
   SettingsUpdated = 'SettingsUpdated',
+
+  // Billing / Subscription (Phase 1)
+  SubscriptionCreated = 'SubscriptionCreated',
+  SubscriptionChanged = 'SubscriptionChanged',
+  SubscriptionCancelled = 'SubscriptionCancelled',
+  SubscriptionReactivated = 'SubscriptionReactivated',
+  SubscriptionExpired = 'SubscriptionExpired',
+
+  // Event Automation (B4)
+  TenantCreated = 'TenantCreated',
+  TenantOffboarded = 'TenantOffboarded',
+  InvoiceGenerated = 'InvoiceGenerated',
+  InvoicePaid = 'InvoicePaid',
+  PaymentFailed = 'PaymentFailed',
+  NotificationFailed = 'NotificationFailed',
 }
 
 export const EVENT_TYPES: readonly EventType[] = Object.values(EventType);

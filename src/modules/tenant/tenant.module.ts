@@ -7,7 +7,9 @@ import { TenantController } from './tenant.controller';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Tenant, TenantUser])],
+  imports: [
+    TypeOrmModule.forFeature([Tenant, TenantUser]),
+  ],
   controllers: [TenantController],
   providers: [TenantService, TenantGuard],
   exports: [TenantService, TypeOrmModule, TenantGuard],

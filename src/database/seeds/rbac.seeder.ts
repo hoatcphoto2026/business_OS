@@ -28,6 +28,8 @@ const PERMISSIONS = [
   { module: 'profit', action: 'view', code: 'profit.view' },
   { module: 'bank', action: 'view', code: 'bank.view' },
   { module: 'admin', action: 'access', code: 'admin.access' },
+  { module: 'billing', action: 'view', code: 'billing.view' },
+  { module: 'billing', action: 'manage', code: 'billing.manage' },
 ];
 
 const ROLE_PERMISSIONS: Record<string, string[]> = {
@@ -41,6 +43,7 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'invoice.issue',
     'profit.view',
     'audit.view',
+    'billing.view',
   ],
   sales: [
     'customer.view', 'customer.create', 'customer.update', 'customer.delete',
@@ -123,9 +126,15 @@ export async function seedRbac(dataSource: DataSource): Promise<void> {
   }
 
   await assign(userHCM, salesRole);
-  await assign(userHN, warehouseRole);
+  await assign(userHN, salesRole); // sales has customer.view so org-isolation can test data scope
   await assign(userMgr, managerRole);
   await assign(userAdmin, adminRole);
+
+  // Multi-tenant user needs customer.view on both tenants for isolation switch test
+  const userMulti = await userRepo.findOne({ where: { email: 'multi@businessos.vn' } });
+  if (userMulti && salesRole) {
+    await assign(userMulti, salesRole);
+  }
 
   // Cafe Mộc admin — needed so cross-tenant audit tests have a real second tenant.
   const tenantB = await tenantRepo.findOne({ where: { code: 'CAFE_MOC' } });
@@ -153,14 +162,35 @@ export async function seedRbac(dataSource: DataSource): Promise<void> {
       }
     }
     await assign(cafeOwner, cafeAdmin);
+
+    // Give multi user a sales role on Cafe Mộc so switch + customer.view works
+    const userMulti = await userRepo.findOne({ where: { email: 'multi@businessos.vn' } });
+    if (userMulti) {
+      let cafeSales = await roleRepo.findOne({ where: { tenantId: tenantB.id, code: 'sales' } });
+      if (!cafeSales) {
+        cafeSales = await roleRepo.save(
+          roleRepo.create({ tenantId: tenantB.id, code: 'sales', name: 'Sales', status: 'active' }),
+        );
+        for (const permCode of ROLE_PERMISSIONS.sales) {
+          const perm = await permRepo.findOne({ where: { code: permCode } });
+          if (!perm) continue;
+          const exists = await rpRepo.findOne({ where: { roleId: cafeSales.id, permissionId: perm.id } });
+          if (!exists) {
+            await rpRepo.save(rpRepo.create({ roleId: cafeSales.id, permissionId: perm.id }));
+          }
+        }
+      }
+      await assign(userMulti, cafeSales);
+    }
   }
 
   console.log('✅ RBAC seeder completed');
   console.log('   Roles: owner, admin, manager, sales, cashier, warehouse, accountant, auditor');
   console.log('   Demo assignments:');
   console.log('     hcm.user      → sales');
-  console.log('     hanoi.user    → warehouse');
+  console.log('     hanoi.user    → sales (for org isolation)');
   console.log('     manager       → manager');
   console.log('     admin         → admin');
+  console.log('     multi         → sales (ABC + Cafe Mộc)');
   console.log('     owner@cafemoc → admin (Cafe Mộc)');
 }

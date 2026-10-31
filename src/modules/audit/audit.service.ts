@@ -15,6 +15,7 @@ import {
   clip,
 } from './audit.serializer';
 import { buildAuditScopeClause, resourceForEntity } from './audit-scope';
+import { CompliancePlatformService } from './compliance-platform.service';
 
 const PHASE1_ENTITY_TYPES = ['customer', 'product', 'sales_order', 'session'] as const;
 
@@ -35,6 +36,7 @@ export class AuditService {
     private readonly auditLogs: AuditLogRepository,
     private readonly tenantContext: TenantContextService,
     private readonly scopeService: ScopeService,
+    private readonly compliance?: CompliancePlatformService,
   ) {}
 
   async logCreate(
@@ -276,6 +278,13 @@ export class AuditService {
     this.logger.log(
       `${saved.action} ${saved.entityType}:${saved.entityId} by ${saved.performedBy} tenant=${saved.tenantId}`,
     );
+    if (this.compliance) {
+      try {
+        await this.compliance.mirror(saved, this.tenantContext.getContext()?.requestId ?? null);
+      } catch (err) {
+        this.logger.warn(`Compliance event was not stored: ${(err as Error).message}`);
+      }
+    }
     return saved;
   }
 

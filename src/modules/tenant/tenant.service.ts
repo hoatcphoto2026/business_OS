@@ -2,11 +2,13 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
+  ForbiddenException,
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, In } from 'typeorm';
 import { Tenant } from './entities/tenant.entity';
+import { TenantUser, MembershipStatus } from './entities/tenant-user.entity';
 import { CreateTenantDto, UpdateTenantDto } from './dto/tenant.dto';
 import { seedMasterDataDefaults } from '../master-data/master-data.seeder';
 
@@ -17,6 +19,8 @@ export class TenantService {
   constructor(
     @InjectRepository(Tenant)
     private readonly tenantRepo: Repository<Tenant>,
+    @InjectRepository(TenantUser)
+    private readonly membershipRepo: Repository<TenantUser>,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -69,7 +73,10 @@ export class TenantService {
     return this.tenantRepo.findOne({ where: { slug } });
   }
 
-  async update(id: string, dto: UpdateTenantDto): Promise<Tenant> {
+  async update(id: string, dto: UpdateTenantDto, callerTenantId?: string): Promise<Tenant> {
+    if (!callerTenantId || id !== callerTenantId) {
+      throw new ForbiddenException('Cannot modify another tenant');
+    }
     const tenant = await this.findById(id);
 
     if (dto.name !== undefined) tenant.name = dto.name;
@@ -82,7 +89,15 @@ export class TenantService {
     return this.tenantRepo.save(tenant);
   }
 
-  async list(): Promise<Tenant[]> {
-    return this.tenantRepo.find({ order: { createdAt: 'DESC' } });
+  async listForUser(userId: string): Promise<Tenant[]> {
+    const memberships = await this.membershipRepo.find({
+      where: { userId, status: MembershipStatus.ACTIVE },
+    });
+    const ids = memberships.map((m) => m.tenantId);
+    if (!ids.length) return [];
+    return this.tenantRepo.find({
+      where: { id: In(ids) },
+      order: { createdAt: 'DESC' },
+    });
   }
 }

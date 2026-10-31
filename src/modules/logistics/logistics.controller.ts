@@ -6,9 +6,12 @@ import { CodService } from './cod.service';
 import { DeliveryStatus } from './enums/delivery-status.enum';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../common/guards/tenant.guard';
+import { PermissionGuard } from '../rbac/guards/permission.guard';
+import { RequirePermission } from '../rbac/decorators/require-permission.decorator';
 
 @Controller('logistics')
-@UseGuards(JwtAuthGuard, TenantGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, PermissionGuard)
+@RequirePermission('admin.access')
 export class LogisticsController {
   constructor(
     private readonly delivery: DeliveryOrderService,

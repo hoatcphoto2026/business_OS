@@ -29,6 +29,9 @@ export class StepUpService {
     method: 'totp' | 'email_otp' | 'password' = 'totp',
     ip?: string,
   ): Promise<StepUpInitiateResult> {
+    if (!userId || !tenantId) {
+      throw new Error('userId and tenantId are required for step-up');
+    }
     const sessionId = uuid();
     const expiresAt = new Date(Date.now() + this.TTL_MS);
 

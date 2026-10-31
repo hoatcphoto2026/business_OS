@@ -48,22 +48,15 @@ export class FeatureService {
   }
 
   async getEnabledCodes(tenantId: string): Promise<Set<string>> {
-    if (this.cache.has(tenantId)) {
-      return this.cache.get(tenantId)!;
-    }
-
     const rows = await this.tenantFeatures
       .createQueryBuilder('tf')
-      .innerJoin('tf.feature', 'f')
-      .where('tf.tenant_id = :tenantId', { tenantId })
-      .andWhere('tf.enabled = true')
+      .innerJoinAndSelect('tf.feature', 'f')
+      .where('tf.tenantId = :tenantId', { tenantId })
+      .andWhere('tf.enabled = :enabled', { enabled: true })
       .andWhere('f.status = :status', { status: 'active' })
-      .select('f.code', 'code')
-      .getRawMany<{ code: string }>();
+      .getMany();
 
-    const set = new Set(rows.map((r) => r.code));
-    this.cache.set(tenantId, set);
-    return set;
+    return new Set(rows.map((r) => r.feature?.code).filter(Boolean) as string[]);
   }
 
   clearCache(tenantId?: string): void {

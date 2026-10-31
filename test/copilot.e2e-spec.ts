@@ -49,21 +49,25 @@ describe('Business Copilot Runtime (e2e)', () => {
   });
 
   it('CASE 7: Copilot disabled → 403', async () => {
+    // Disable both class-level and method-level features
     await request(app.getHttpServer())
       .post('/tenant-features/business_copilot/disable')
-      .set('Authorization', `Bearer ${adminToken}`)
-      .expect(201);
-
+      .set('Authorization', `Bearer ${adminToken}`);
     await request(app.getHttpServer())
+      .post('/tenant-features/business_copilot_ai/disable')
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    const res = await request(app.getHttpServer())
       .post('/copilot/ask')
       .set('Authorization', `Bearer ${salesToken}`)
-      .send({ question: 'Khách nào nợ nhiều nhất?' })
-      .expect(403);
+      .send({ question: 'Khách nào nợ nhiều nhất?' });
+
+    expect(res.status).toBe(403);
   });
 
   it('CASE 1-4: ask intents after enable', async () => {
     await request(app.getHttpServer())
-      .post('/tenant-features/business_copilot/enable')
+      .post('/tenant-features/business_copilot_ai/enable')
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(201);
 
@@ -147,6 +151,12 @@ describe('Business Copilot Runtime (e2e)', () => {
   });
 
   it('dashboard + analyze + recommend', async () => {
+    // Ensure base feature is enabled
+    await request(app.getHttpServer())
+      .post('/tenant-features/business_copilot/enable')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(201);
+
     const dash = await request(app.getHttpServer())
       .get('/copilot/dashboard')
       .set('Authorization', `Bearer ${adminToken}`)

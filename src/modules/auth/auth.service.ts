@@ -70,7 +70,10 @@ export class AuthService {
       (m) =>
         m.tenant &&
         (m.tenant.status === TenantStatus.ACTIVE ||
-          m.tenant.status === TenantStatus.TRIAL),
+          m.tenant.status === TenantStatus.TRIAL ||
+          // PAST_DUE (subscription cancelled / payment overdue) must still be
+          // able to log in so the owner can reactivate the subscription.
+          m.tenant.status === TenantStatus.PAST_DUE),
     );
 
     if (usable.length === 0) {
@@ -110,6 +113,22 @@ export class AuthService {
         role: m.role,
       })),
     };
+  }
+
+  /** Issue the same application session used by password login. */
+  async issueTenantSession(
+    user: User,
+    membership: TenantUser,
+    meta?: Pick<AuditActorOverride, 'ipAddress' | 'userAgent'>,
+  ) {
+    if (!membership.tenant) {
+      const tenant = await this.tenantRepo.findOne({ where: { id: membership.tenantId } });
+      if (!tenant) {
+        throw new Error('Tenant not found for identity session');
+      }
+      membership.tenant = tenant;
+    }
+    return this.issueToken(user, membership, meta);
   }
 
   async switchTenant(

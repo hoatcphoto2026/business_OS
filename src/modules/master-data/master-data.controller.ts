@@ -10,9 +10,12 @@ import { CustomersService } from '../customers/customers.service';
 import { ProductsService } from '../products/products.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../common/guards/tenant.guard';
+import { PermissionGuard } from '../rbac/guards/permission.guard';
+import { RequirePermission } from '../rbac/decorators/require-permission.decorator';
 
 @Controller('master-data')
-@UseGuards(JwtAuthGuard, TenantGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, PermissionGuard)
+@RequirePermission('admin.access')
 export class MasterDataController {
   constructor(
     private readonly customers: CustomersService,

@@ -37,6 +37,22 @@ describe('Organization Isolation (e2e)', () => {
 
     dataSource = moduleFixture.get(DataSource);
 
+    // Self-heal: ensure demo memberships are ACTIVE (previous offboarding may have suspended them)
+    try {
+      await dataSource.query(`
+        UPDATE tenant_users tu
+        SET status = 'active'
+        FROM users u, tenants t
+        WHERE tu.user_id = u.id
+          AND tu.tenant_id = t.id
+          AND t.code = 'ABC'
+          AND u.email IN ('hcm.user@abctrading.vn', 'hanoi.user@abctrading.vn', 'manager@abctrading.vn', 'admin@abctrading.vn', 'multi@businessos.vn')
+          AND tu.status <> 'active'
+      `);
+    } catch (e) {
+      console.warn('Membership recovery skipped:', (e as any).message);
+    }
+
     // Login as the seeded organization users
     // (Assumes organization.seeder has been run)
     const login = async (email: string) => {

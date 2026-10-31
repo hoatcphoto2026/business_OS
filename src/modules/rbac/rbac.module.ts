@@ -9,10 +9,11 @@ import { PermissionGuard } from './guards/permission.guard';
 import { RbacController } from './rbac.controller';
 import { RbacService } from './rbac.service';
 import { TenantModule } from '../tenant/tenant.module';
+import { TenantUser } from '../tenant/entities/tenant-user.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Permission, Role, RolePermission, UserRole]),
+    TypeOrmModule.forFeature([Permission, Role, RolePermission, UserRole, TenantUser]),
     TenantModule,
   ],
   controllers: [RbacController],

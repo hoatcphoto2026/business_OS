@@ -1,0 +1,35 @@
+export enum AutomationWorkflowStatus {
+  DRAFT = 'DRAFT',
+  ACTIVE = 'ACTIVE',
+  INACTIVE = 'INACTIVE',
+}
+
+export enum AutomationInstanceStatus {
+  PENDING = 'PENDING',
+  RUNNING = 'RUNNING',
+  COMPLETED = 'COMPLETED',
+  FAILED = 'FAILED',
+  CANCELLED = 'CANCELLED',
+}
+
+export enum AutomationExecutionStatus {
+  PENDING = 'PENDING',
+  SUCCESS = 'SUCCESS',
+  FAILED = 'FAILED',
+  SKIPPED = 'SKIPPED',
+}
+
+export enum AutomationActionType {
+  SEND_EMAIL = 'SEND_EMAIL',
+  SEND_SMS = 'SEND_SMS',
+  CREATE_NOTIFICATION = 'CREATE_NOTIFICATION',
+  ACTIVATE_SUBSCRIPTION = 'ACTIVATE_SUBSCRIPTION',
+  SUSPEND_TENANT = 'SUSPEND_TENANT',
+  UPDATE_ENTITY_STATUS = 'UPDATE_ENTITY_STATUS',
+  CALL_WEBHOOK = 'CALL_WEBHOOK',
+}
+
+export enum OnErrorPolicy {
+  CONTINUE = 'CONTINUE',
+  STOP = 'STOP',
+}

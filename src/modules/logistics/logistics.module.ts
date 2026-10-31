@@ -12,6 +12,7 @@ import { Carrier } from './entities/carrier.entity';
 import { CodSettlement } from './entities/cod-settlement.entity';
 import { EventModule } from '../event/event.module';
 import { TenantModule } from '../tenant/tenant.module';
+import { RbacModule } from '../rbac/rbac.module';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 
 @Module({
@@ -19,6 +20,7 @@ import { TenantGuard } from '../../common/guards/tenant.guard';
     TypeOrmModule.forFeature([DeliveryOrder, DeliveryTrackingEvent, Carrier, CodSettlement]),
     EventModule,
     TenantModule,
+    RbacModule,
   ],
   controllers: [LogisticsController],
   providers: [

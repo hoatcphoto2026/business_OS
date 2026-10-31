@@ -23,8 +23,11 @@ export class RbacService {
     return this.permissionRepo.find();
   }
 
-  async getUserPermissions(userId: string) {
-    const set = await this.authorizationService.getUserPermissions(userId);
+  async getUserPermissions(userId: string, tenantId?: string) {
+    const set = await this.authorizationService.getUserPermissions(
+      userId,
+      tenantId,
+    );
     return Array.from(set);
   }
 }

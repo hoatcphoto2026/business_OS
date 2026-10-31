@@ -28,19 +28,21 @@ export class FeatureGuard implements CanActivate {
       context.getClass(),
     ]);
 
-    if (!required) return true;
+    if (!required) {
+      return true;
+    }
 
     const request = context.switchToHttp().getRequest();
     const user = request.user as { userId?: string; tenantId?: string } | undefined;
     const tenantId = user?.tenantId;
 
     if (!tenantId) {
-      throw new ForbiddenException('Feature Disabled');
+      throw new ForbiddenException('Feature Disabled: no tenant');
     }
 
     const enabled = await this.featureService.isEnabled(tenantId, required);
     if (!enabled) {
-      throw new ForbiddenException('Feature Disabled');
+      throw new ForbiddenException(`Feature Disabled: ${required}`);
     }
 
     return true;

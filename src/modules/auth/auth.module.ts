@@ -31,7 +31,7 @@ import { AuditModule } from '../audit/audit.module';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
-        secret: config.get<string>('JWT_SECRET', 'dev-secret-change-me'),
+        secret: (() => { const s = config.get<string>('JWT_SECRET'); if (process.env.NODE_ENV === 'production' && (!s || s === 'dev-secret-change-me')) throw new Error('JWT_SECRET must be set in production'); return s || 'dev-secret-change-me'; })(),
         signOptions: {
           expiresIn: config.get<string>('JWT_EXPIRES_IN', '8h'),
         },

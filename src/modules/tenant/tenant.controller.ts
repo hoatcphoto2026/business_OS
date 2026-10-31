@@ -7,6 +7,8 @@ import {
   Param,
   UseGuards,
   ParseUUIDPipe,
+  Req,
+  ForbiddenException,
 } from '@nestjs/common';
 import { TenantService } from './tenant.service';
 import { CreateTenantDto, UpdateTenantDto } from './dto/tenant.dto';
@@ -24,18 +26,25 @@ export class TenantController {
   @Post()
   @UseGuards(JwtAuthGuard)
   create(@Body() dto: CreateTenantDto) {
+    // Tenant creation is via /onboarding/start. Direct create is platform-only.
+    if (process.env.ALLOW_TENANT_CREATE !== 'true') {
+      throw new ForbiddenException('Direct tenant creation is disabled');
+    }
     return this.tenantService.create(dto);
   }
 
   @Get()
   @UseGuards(JwtAuthGuard)
-  list() {
-    return this.tenantService.list();
+  list(@Req() req: any) {
+    return this.tenantService.listForUser(req.user.userId);
   }
 
   @Get(':id')
   @UseGuards(JwtAuthGuard, TenantGuard)
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
+  findOne(@Param('id', ParseUUIDPipe) id: string, @Req() req: any) {
+    if (req.user?.tenantId && id !== req.user.tenantId) {
+      throw new ForbiddenException('Cannot read another tenant');
+    }
     return this.tenantService.findById(id);
   }
 
@@ -44,7 +53,8 @@ export class TenantController {
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateTenantDto,
+    @Req() req: any,
   ) {
-    return this.tenantService.update(id, dto);
+    return this.tenantService.update(id, dto, req.user?.tenantId);
   }
 }

@@ -84,6 +84,10 @@ export async function seedTenants(dataSource: DataSource): Promise<void> {
         },
       });
       t = await tenantRepo.save(t);
+    } else if (t.status !== TenantStatus.ACTIVE && t.status !== TenantStatus.TRIAL) {
+      // Reset status so login works after previous test runs
+      t.status = TenantStatus.ACTIVE;
+      t = await tenantRepo.save(t);
     }
     return t;
   }
@@ -135,6 +139,10 @@ export async function seedTenants(dataSource: DataSource): Promise<void> {
         role,
         status: MembershipStatus.ACTIVE,
       });
+      m = await membershipRepo.save(m);
+    } else if (m.status !== MembershipStatus.ACTIVE) {
+      // Idempotent recovery: previous e2e (offboarding) may have suspended memberships
+      m.status = MembershipStatus.ACTIVE;
       m = await membershipRepo.save(m);
     }
     return m;

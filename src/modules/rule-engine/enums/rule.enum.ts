@@ -1,0 +1,29 @@
+export enum RuleOperator {
+  EQ = '=',
+  NEQ = '!=',
+  GT = '>',
+  LT = '<',
+  GTE = '>=',
+  LTE = '<=',
+}
+
+export enum ConditionType {
+  USAGE_THRESHOLD = 'USAGE_THRESHOLD',
+  SUBSCRIPTION_STATUS = 'SUBSCRIPTION_STATUS',
+  PAYMENT_STATUS = 'PAYMENT_STATUS',
+  INVOICE_STATUS = 'INVOICE_STATUS',
+}
+
+export enum ActionType {
+  SEND_NOTIFICATION = 'SEND_NOTIFICATION',
+  CREATE_TICKET = 'CREATE_TICKET',
+  SUSPEND_TENANT = 'SUSPEND_TENANT',
+  REACTIVATE_TENANT = 'REACTIVATE_TENANT',
+  GENERATE_INVOICE = 'GENERATE_INVOICE',
+}
+
+export enum RuleExecutionStatus {
+  MATCHED = 'MATCHED',
+  NOT_MATCHED = 'NOT_MATCHED',
+  ERROR = 'ERROR',
+}

@@ -20,6 +20,7 @@ import { ProductsModule } from '../products/products.module';
 import { ScopeModule } from '../scope/scope.module';
 import { EventModule } from '../event/event.module';
 import { TenantModule } from '../tenant/tenant.module';
+import { RbacModule } from '../rbac/rbac.module';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 
 @Module({
@@ -29,6 +30,7 @@ import { TenantGuard } from '../../common/guards/tenant.guard';
     ]),
     CustomersModule,
     TenantModule,
+    RbacModule,
     ProductsModule,
     ScopeModule,
     EventModule,

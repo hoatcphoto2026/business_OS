@@ -6,6 +6,7 @@ import { seedRbac } from './rbac.seeder';
 import { seedScopes } from './scope.seeder';
 import { seedFeatures } from './feature.seeder';
 import { seedLogistics } from './logistics.seeder';
+import { seedPlans, seedDemoSubscriptions } from './billing.seeder';
 import { seedMasterDataDefaults } from '../../modules/master-data/master-data.seeder';
 import { Tenant } from '../../modules/tenant/entities/tenant.entity';
 
@@ -41,6 +42,8 @@ async function run() {
     }
 
     await seedFeatures(dataSource);
+    await seedPlans(dataSource);
+    await seedDemoSubscriptions(dataSource);
 
     // Phase 2: Seed Master Data defaults for demo tenants
     if (tenantA) {

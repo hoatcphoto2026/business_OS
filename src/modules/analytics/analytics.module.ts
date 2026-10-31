@@ -11,12 +11,14 @@ import { Customer } from '../customers/entities/customer.entity';
 import { Product } from '../products/entities/product.entity';
 import { Supplier } from '../master-data/entities/supplier.entity';
 import { TenantModule } from '../tenant/tenant.module';
+import { RbacModule } from '../rbac/rbac.module';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([SalesOrder, Customer, Product, Supplier]),
     TenantModule,
+    RbacModule,
   ],
   controllers: [AnalyticsController],
   providers: [

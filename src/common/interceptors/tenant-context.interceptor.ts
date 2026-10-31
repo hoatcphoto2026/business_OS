@@ -32,6 +32,9 @@ export class TenantContextInterceptor implements NestInterceptor {
       return next.handle();
     }
 
+    const header = request.headers?.['x-request-id'];
+    const requestId =
+      request.traceId || (Array.isArray(header) ? header[0] : header) || undefined;
     const contextData = {
       tenantId: user.tenantId,
       userId: user.userId,
@@ -39,6 +42,7 @@ export class TenantContextInterceptor implements NestInterceptor {
       companyId: user.companyId ?? null,
       branchId: user.branchId ?? null,
       departmentId: user.departmentId ?? null,
+      requestId,
     };
 
     return new Observable((subscriber) => {

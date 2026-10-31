@@ -47,10 +47,17 @@ export class TenantGuard implements CanActivate {
       throw new ForbiddenException('Tenant not found');
     }
 
-    if (
-      tenant.status !== TenantStatus.ACTIVE &&
-      tenant.status !== TenantStatus.TRIAL
-    ) {
+    // PAST_DUE stays reachable on purpose: BillingService maps a cancelled
+    // subscription to TenantStatus.PAST_DUE so the owner can log in and
+    // reactivate (see mapStatusToTenant). Feature/subscription guards still
+    // block the actual business operations.
+    const allowedStatuses: TenantStatus[] = [
+      TenantStatus.ACTIVE,
+      TenantStatus.TRIAL,
+      TenantStatus.PAST_DUE,
+    ];
+
+    if (!allowedStatuses.includes(tenant.status)) {
       throw new ForbiddenException('Tenant is not active');
     }
 

@@ -11,6 +11,7 @@ import { Connector } from './entities/connector.entity';
 import { IntegrationLog } from './entities/integration-log.entity';
 import { EventModule } from '../event/event.module';
 import { TenantModule } from '../tenant/tenant.module';
+import { RbacModule } from '../rbac/rbac.module';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 
 @Module({
@@ -18,6 +19,7 @@ import { TenantGuard } from '../../common/guards/tenant.guard';
     TypeOrmModule.forFeature([ApiKey, Webhook, Connector, IntegrationLog]),
     EventModule,
     TenantModule,
+    RbacModule,
   ],
   controllers: [IntegrationController],
   providers: [ApiKeyService, WebhookService, ConnectorService, WebhookDispatcher, TenantGuard],

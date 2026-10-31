@@ -12,6 +12,7 @@ import { WorkflowActionDto } from './dto/workflow.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 import { PermissionGuard } from '../rbac/guards/permission.guard';
+import { RequirePermission } from '../rbac/decorators/require-permission.decorator';
 
 @Controller('workflows')
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionGuard)
@@ -29,6 +30,7 @@ export class WorkflowController {
   }
 
   @Post(':id/submit')
+  @RequirePermission('sales.create')
   submit(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() body: WorkflowActionDto,
@@ -37,6 +39,7 @@ export class WorkflowController {
   }
 
   @Post(':id/approve')
+  @RequirePermission('admin.access')
   approve(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() body: WorkflowActionDto,
@@ -45,6 +48,7 @@ export class WorkflowController {
   }
 
   @Post(':id/reject')
+  @RequirePermission('admin.access')
   reject(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() body: WorkflowActionDto,
@@ -53,6 +57,7 @@ export class WorkflowController {
   }
 
   @Post(':id/post')
+  @RequirePermission('admin.access')
   post(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() body: WorkflowActionDto,
@@ -61,6 +66,7 @@ export class WorkflowController {
   }
 
   @Post(':id/cancel')
+  @RequirePermission('admin.access')
   cancel(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() body: WorkflowActionDto,
@@ -69,6 +75,7 @@ export class WorkflowController {
   }
 
   @Post(':id/close')
+  @RequirePermission('admin.access')
   close(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() body: WorkflowActionDto,

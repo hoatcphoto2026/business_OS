@@ -96,6 +96,6 @@ import { TenantModule } from '../tenant/tenant.module';
     BreakGlassService,
     AdminTracingInterceptor,
   ],
-  exports: [LoginHistoryService],
+  exports: [LoginHistoryService, StepUpService, StepUpGuard],
 })
 export class AdministrationModule {}

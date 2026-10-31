@@ -102,7 +102,7 @@ export class AdministrationController {
   @AdminApi({ summary: 'Initiate step-up challenge', auditAction: 'stepup.initiate' })
   @ApiResponse({ status: 201, type: StepUpInitiateResponseDto })
   initiateStepUp(@Body() body: StepUpInitiateDto, @Req() req: any) {
-    const userId = req.user?.id || req.user?.sub;
+    const userId = req.user?.userId || req.user?.id || req.user?.sub;
     const tenantId = req.tenantId || req.user?.tenantId;
     return this.stepUp.initiate(tenantId, userId, body.action, body.method || 'totp', req.ip);
   }
@@ -111,7 +111,7 @@ export class AdministrationController {
   @AdminApi({ summary: 'Verify step-up code and obtain token', auditAction: 'stepup.verify' })
   @ApiResponse({ status: 200, type: StepUpVerifyResponseDto })
   verifyStepUp(@Body() body: StepUpVerifyDto, @Req() req: any) {
-    const userId = req.user?.id || req.user?.sub;
+    const userId = req.user?.userId || req.user?.id || req.user?.sub;
     const tenantId = req.tenantId || req.user?.tenantId;
     return this.stepUp.verify(body.sessionId, tenantId, userId, body.code);
   }
@@ -325,7 +325,7 @@ export class AdministrationController {
   @Post('break-glass/request')
   @AdminApi({ summary: 'Request emergency break-glass access', auditAction: 'breakglass.request' })
   requestBreakGlass(@Body() body: { reason: string }, @Req() req: any) {
-    const userId = req.user?.id || req.user?.sub;
+    const userId = req.user?.userId || req.user?.id || req.user?.sub;
     const tenantId = req.tenantId || req.user?.tenantId;
     return this.breakGlass.request(tenantId, userId, body.reason);
   }
