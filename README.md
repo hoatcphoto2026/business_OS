@@ -6,6 +6,10 @@ Production-ready Multi-Tenant SaaS foundation.
 
 **Tech Stack:** NestJS · TypeScript · PostgreSQL · TypeORM
 
+> ⚠️ **Trước khi sửa code, đọc [`ENGINEERING-GUARDRAILS.md`](./ENGINEERING-GUARDRAILS.md)**
+> – bất biến kiến trúc (tenant isolation, step-up, seed contract), Definition of Done
+> và danh sách lỗi đã từng xảy ra.
+
 ---
 
 ## Key Architecture Decisions (Mandatory)
@@ -646,4 +650,62 @@ LLM → Copilot Runtime → QueryEngine → Platform. No direct DB access.
 - See SPRINT10-STRUCTURE.md
 
 Run: `npm run migration:run && npm run seed`
+
+
+---
+
+## Dev Workflow – Test Data Hygiene (2026-10-31)
+
+E2E suites create tenants, users, invoices, logs… and only close the Nest app;
+they never delete their rows. Two helpers keep the database predictable.
+
+### 0. One command (dùng trước khi tạo PR)
+
+```bash
+npm run verify        # build → unit test → full e2e trên DB tạm (41 suites / 171 tests)
+npm run verify:fast   # chỉ build + unit (khi sửa nhỏ, ~30s)
+```
+
+### 1. Run e2e on a throw-away database (recommended)
+
+```bash
+npm run test:e2e:isolated                 # create business_os_e2e → migrate → seed → full e2e → drop
+npm run test:e2e:isolated -- billing      # only matching spec files
+npm run test:e2e:isolated -- --keep       # keep the DB for debugging (psql -d business_os_e2e)
+```
+
+The runner refuses to run if `E2E_DB_NAME` equals `DB_NAME`, so the dev
+database can never be dropped by accident. Override the target with
+`E2E_DB_NAME` / `E2E_MAINTENANCE_DB`.
+
+### 2. Purge test data from the current database
+
+```bash
+npm run db:purge-test-data            # DRY-RUN: shows tenants/rows/users that would be deleted
+npm run db:purge-test-data:apply      # delete them (single transaction)
+```
+
+Rules:
+
+- Keeps tenant `ABC`, `CAFE_MOC` (override with `DEMO_TENANT_CODES`) and the
+  demo users (override with `DEMO_USER_EMAILS`).
+- Deletes every other tenant plus all rows carrying their `tenant_id`
+  (works for the 56 tables that have `tenant_id` without a FK).
+- Deletes users that only belonged to removed tenants, and test accounts left
+  inside the demo tenants (`e2e.*`, `audit.*`, `revoke.*`, `limit-test-*`,
+  `sso-*`, `sus-owner-*`, `@test.local`, `@test.vn`, `@example.com`).
+- Refuses to run when a demo tenant is missing – run `npm run seed` first.
+
+Demo subscription/plan baseline is restored by `npm run seed`
+(`seedDemoSubscriptions`: ABC=professional, CAFE_MOC=starter, both ACTIVE).
+
+### 3. CI
+
+`.github/workflows/ci.yml` runs on every push/PR:
+
+```
+npm ci → npm run build → npm test -- --runInBand
+       → npm run migration:run → npm run seed
+       → npm run test:e2e -- --runInBand   # FULL suite (41 suites / 171 tests)
+```
 

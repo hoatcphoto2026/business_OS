@@ -1,0 +1,35 @@
+# Business OS Backend – project rules (auto-loaded by Cline)
+
+Before ANY change: read `ENGINEERING-GUARDRAILS.md`, then run `git status --short`.
+
+## Hard rules — do not violate
+
+- **Tenant isolation**: every business query filters `tenant_id` from ALS
+  (`TenantContextService`). Never trust a client-provided tenant id.
+- **Permissions are tenant-scoped**: `AuthorizationService.hasPermission(userId, permission, tenantId)`,
+  cache key `${tenantId}:${userId}`. Every new call site MUST pass `tenantId`.
+- **JWT principal field is `req.user.userId`** (see `JwtStrategy`). `.id` / `.sub` are fallbacks only.
+- **Step-up**: sensitive mutations need `@RequireStepUp` + `StepUpGuard`. Tests must run the real
+  flow (`/admin/step-up/initiate` → `/verify` → header `X-Step-Up-Token`).
+  **NEVER widen assertions** (no `expect([200, 412])`) just to make a test pass.
+- **Tenant status**: `ACTIVE | TRIAL | PAST_DUE` allowed; `SUSPENDED | CLOSED` blocked.
+  `billing.mapStatusToTenant` must stay in sync with `auth.service.ts` + `TenantGuard`.
+- **Seed contract**: after `npm run seed` on an EMPTY database, `ABC` and `CAFE_MOC` must have
+  active tenant + membership + roles + plan **and an ACTIVE subscription**.
+  New table/feature → update the matching seeder.
+
+## Definition of done
+
+1. `npm run verify` — build + unit + e2e isolated (baseline: **41 suites / 171 tests**)
+2. Touched auth/guard/billing/seed → also run with `NODE_ENV=test`
+3. Login smoke: `admin@abctrading.vn` / `Password123!` / tenant `ABC`
+4. Report the **actual numbers** of the run you just did (never copy old ones)
+
+## Hygiene
+
+- Never run the full e2e suite against `DB_NAME`; use `test:e2e:isolated`.
+  If forced to, run `db:purge-test-data:apply` + `seed` afterwards.
+- No absolute sandbox paths (`/tmp/...`, `/workspace/...`) in committed code or config.
+- Root stays clean: no `main.ts` / `tracing.ts` / `ci.yml` copies, no 0-byte files,
+  no temporary `.txt` logs.
+- Do not loosen tests to make them green — fix the code or fix the flow.
