@@ -186,4 +186,134 @@ describe('Enterprise Organization (e2e)', () => {
       .set('Authorization', `Bearer ${cafeToken}`)
       .expect(404);
   });
+
+  it('renames, moves and deactivates org units (PATCH/PUT/DELETE)', async () => {
+    const auth = { Authorization: `Bearer ${adminToken}` };
+
+    const parent = await request(app.getHttpServer())
+      .post('/org/organizations')
+      .set(auth)
+      .send({ code: `UP-${stamp}`, name: 'Parent org' })
+      .expect(201);
+    const child = await request(app.getHttpServer())
+      .post('/org/organizations')
+      .set(auth)
+      .send({ code: `UC-${stamp}`, name: 'Child org', parentId: parent.body.id })
+      .expect(201);
+
+    const patched = await request(app.getHttpServer())
+      .patch(`/org/organizations/${child.body.id}`)
+      .set(auth)
+      .send({ name: 'Child org renamed' })
+      .expect(200);
+    expect(patched.body.name).toBe('Child org renamed');
+
+    // PUT is a full replace: name is mandatory.
+    await request(app.getHttpServer())
+      .put(`/org/organizations/${child.body.id}`)
+      .set(auth)
+      .send({ status: 'active' })
+      .expect(400);
+    const replaced = await request(app.getHttpServer())
+      .put(`/org/organizations/${child.body.id}`)
+      .set(auth)
+      .send({ name: 'Child org replaced' })
+      .expect(200);
+    expect(replaced.body.name).toBe('Child org replaced');
+
+    // Cycles are rejected.
+    await request(app.getHttpServer())
+      .patch(`/org/organizations/${parent.body.id}`)
+      .set(auth)
+      .send({ parentId: child.body.id })
+      .expect(400);
+    await request(app.getHttpServer())
+      .patch(`/org/organizations/${child.body.id}`)
+      .set(auth)
+      .send({ parentId: child.body.id })
+      .expect(400);
+
+    const dept = await request(app.getHttpServer())
+      .post('/org/departments')
+      .set(auth)
+      .send({ organizationId: parent.body.id, code: `UD-${stamp}`, name: 'Ops' })
+      .expect(201);
+    const renamedDept = await request(app.getHttpServer())
+      .patch(`/org/departments/${dept.body.id}`)
+      .set(auth)
+      .send({ name: 'Operations' })
+      .expect(200);
+    expect(renamedDept.body.name).toBe('Operations');
+
+    const team = await request(app.getHttpServer())
+      .post('/org/teams')
+      .set(auth)
+      .send({ departmentId: dept.body.id, code: `UT-${stamp}`, name: 'Squad' })
+      .expect(201);
+    const teamPatched = await request(app.getHttpServer())
+      .patch(`/org/teams/${team.body.id}`)
+      .set(auth)
+      .send({ status: 'inactive' })
+      .expect(200);
+    expect(teamPatched.body.status).toBe('inactive');
+
+    const center = await request(app.getHttpServer())
+      .post('/org/cost-centers')
+      .set(auth)
+      .send({
+        organizationId: parent.body.id,
+        departmentId: dept.body.id,
+        code: `UCC-${stamp}`,
+        name: 'Ops CC',
+      })
+      .expect(201);
+    const centerReplaced = await request(app.getHttpServer())
+      .put(`/org/cost-centers/${center.body.id}`)
+      .set(auth)
+      .send({ name: 'Ops CC renamed' })
+      .expect(200);
+    expect(centerReplaced.body.name).toBe('Ops CC renamed');
+
+    // DELETE = soft deactivate (status inactive), data is kept for reporting.
+    for (const path of [
+      `/org/teams/${team.body.id}`,
+      `/org/departments/${dept.body.id}`,
+      `/org/cost-centers/${center.body.id}`,
+      `/org/organizations/${child.body.id}`,
+    ]) {
+      const deleted = await request(app.getHttpServer())
+        .delete(path)
+        .set(auth)
+        .expect(200);
+      expect(deleted.body.status).toBe('inactive');
+    }
+
+    const tree = await request(app.getHttpServer())
+      .get('/org/tree')
+      .query({ organizationId: parent.body.id })
+      .set(auth)
+      .expect(200);
+    const deptNode = tree.body.departments.find(
+      (row: { id: string }) => row.id === dept.body.id,
+    );
+    expect(deptNode.status).toBe('inactive');
+    expect(tree.body.status).toBe('active');
+
+    // RBAC + tenant isolation on the new endpoints.
+    await request(app.getHttpServer())
+      .patch(`/org/organizations/${parent.body.id}`)
+      .set('Authorization', `Bearer ${salesToken}`)
+      .send({ name: 'not-allowed' })
+      .expect(403);
+    await request(app.getHttpServer())
+      .patch(`/org/organizations/${parent.body.id}`)
+      .set('Authorization', `Bearer ${cafeToken}`)
+      .send({ name: 'other-tenant' })
+      .expect(404);
+    await request(app.getHttpServer())
+      .patch('/org/organizations/00000000-0000-0000-0000-000000000000')
+      .set(auth)
+      .send({ name: 'missing' })
+      .expect(404);
+  });
 });

@@ -68,7 +68,7 @@ Thêm bảng/feature mới ⇒ cập nhật seeder tương ứng, đừng để 
 
 ## 2. Definition of Done — verify trước khi báo "xong"
 
-- [ ] `npm run verify` → lint + build + unit + e2e isolated (baseline hiện tại: **42 suites / 174 tests PASS**)
+- [ ] `npm run verify` → lint + build + unit + e2e isolated (baseline hiện tại: **42 suites / 177 tests PASS**)
 - [ ] Sửa nhỏ thì chạy nhanh `npm run verify:fast` (lint + build + unit)
 - [ ] Muốn xem warning của lint: `npm run lint:check` (CI fail khi có **error**, warning không chặn)
 - [ ] Nếu chạm auth / guard / billing / seed: chạy lại với `NODE_ENV=test` (parity CI)
@@ -118,6 +118,7 @@ Thêm bảng/feature mới ⇒ cập nhật seeder tương ứng, đừng để 
 | 7 | CI xanh nhưng thực tế 3 suite fail | CI chỉ chạy `administration` | `.github/workflows/ci.yml` (full e2e) |
 | 8 | `npm run lint` lỗi vì thiếu `eslint` | Script khai báo nhưng dependency chưa cài; config test còn trỏ `/tmp` | `.eslintrc.js`, devDeps `eslint` + `@typescript-eslint/*`, CI step `lint:check` |
 | 9 | Thiếu header bảo mật & rate limit toàn cục | Chưa có `helmet`, chưa có giới hạn request theo IP | `src/main.ts` (helmet + `TRUST_PROXY`), `src/app.module.ts` (`ThrottlerGuard` + `THROTTLE_*`) |
+| 10 | SSO test pass nhưng IdP thật (Google/Entra) không login được | `verifyIdToken` chỉ hỗ trợ HS256 (client secret), không đọc JWKS; discovery lại khai báo RS256 | `identity.service.ts`: RS256/384/512 + JWKS cache/kid rotation + exchange authorization code server-side |
 
 ---
 

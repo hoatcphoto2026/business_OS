@@ -1,6 +1,6 @@
 import { IsEnum, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { OrgMembershipRole } from '../enums/enterprise-org.enum';
+import { OrgMembershipRole, OrgUnitStatus } from '../enums/enterprise-org.enum';
 
 export class CreateEnterpriseOrgDto {
   @ApiProperty()
@@ -138,3 +138,56 @@ export class AssignUserDto {
   @IsUUID()
   userId!: string;
 }
+
+/** PATCH payload – only the provided fields change. */
+export class UpdateOrgUnitDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  name?: string;
+
+  @ApiPropertyOptional({ enum: OrgUnitStatus })
+  @IsOptional()
+  @IsEnum(OrgUnitStatus)
+  status?: OrgUnitStatus;
+}
+
+export class UpdateEnterpriseOrgDto extends UpdateOrgUnitDto {
+  @ApiPropertyOptional({ description: 'Move the node under another organization' })
+  @IsOptional()
+  @IsUUID()
+  parentId?: string;
+}
+
+export class UpdateEnterpriseDepartmentDto extends UpdateOrgUnitDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  parentId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  costCenterId?: string;
+}
+
+export class UpdateEnterpriseTeamDto extends UpdateOrgUnitDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  parentId?: string;
+
+  @ApiPropertyOptional({ description: 'Move the team to another department' })
+  @IsOptional()
+  @IsUUID()
+  departmentId?: string;
+}
+
+export class UpdateCostCenterDto extends UpdateOrgUnitDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  departmentId?: string;
+}
+

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Header, Param, ParseUUIDPipe, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Header, Param, ParseUUIDPipe, Patch, Post, Put, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { EnterpriseOrgService } from './enterprise-org.service';
 import {
@@ -9,6 +9,10 @@ import {
   CreateEnterpriseTeamDto,
   CreateOrgMembershipDto,
   MoveOrgUserDto,
+  UpdateCostCenterDto,
+  UpdateEnterpriseDepartmentDto,
+  UpdateEnterpriseOrgDto,
+  UpdateEnterpriseTeamDto,
 } from './dto/enterprise-org.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../common/guards/tenant.guard';
@@ -35,10 +39,58 @@ export class EnterpriseOrgController {
     return this.orgs.listOrganizations();
   }
 
+  @Patch('organizations/:id')
+  @ApiOperation({ summary: 'Rename / move / change status of an organization (partial)' })
+  updateOrganization(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateEnterpriseOrgDto,
+  ) {
+    return this.orgs.updateOrganization(id, dto);
+  }
+
+  @Put('organizations/:id')
+  @ApiOperation({ summary: 'Replace an organization (name required)' })
+  replaceOrganization(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateEnterpriseOrgDto,
+  ) {
+    return this.orgs.updateOrganization(id, dto, { requireName: true });
+  }
+
+  @Delete('organizations/:id')
+  @ApiOperation({ summary: 'Deactivate (soft-delete) an organization' })
+  deactivateOrganization(@Param('id', ParseUUIDPipe) id: string) {
+    return this.orgs.deactivateOrganization(id);
+  }
+
   @Post('departments')
   @ApiOperation({ summary: 'Create a department, optionally under another department' })
   createDepartment(@Body() dto: CreateEnterpriseDepartmentDto) {
     return this.orgs.createDepartment(dto);
+  }
+
+  @Patch('departments/:id')
+  @ApiOperation({ summary: 'Rename / move / change status of a department (partial)' })
+  updateDepartment(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateEnterpriseDepartmentDto,
+  ) {
+    return this.orgs.updateDepartment(id, dto);
+  }
+
+  @Put('departments/:id')
+  @ApiOperation({ summary: 'Replace a department (name required)' })
+  replaceDepartment(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateEnterpriseDepartmentDto,
+  ) {
+    return this.orgs.updateDepartment(id, dto, { requireName: true });
+  }
+
+  @Delete('departments/:id')
+  @ApiOperation({ summary: 'Deactivate (soft-delete) a department' })
+  deactivateDepartment(@Param('id', ParseUUIDPipe) id: string) {
+    return this.orgs.deactivateDepartment(id);
   }
 
   @Post('teams')
@@ -47,10 +99,58 @@ export class EnterpriseOrgController {
     return this.orgs.createTeam(dto);
   }
 
+  @Patch('teams/:id')
+  @ApiOperation({ summary: 'Rename / move / change status of a team (partial)' })
+  updateTeam(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateEnterpriseTeamDto,
+  ) {
+    return this.orgs.updateTeam(id, dto);
+  }
+
+  @Put('teams/:id')
+  @ApiOperation({ summary: 'Replace a team (name required)' })
+  replaceTeam(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateEnterpriseTeamDto,
+  ) {
+    return this.orgs.updateTeam(id, dto, { requireName: true });
+  }
+
+  @Delete('teams/:id')
+  @ApiOperation({ summary: 'Deactivate (soft-delete) a team' })
+  deactivateTeam(@Param('id', ParseUUIDPipe) id: string) {
+    return this.orgs.deactivateTeam(id);
+  }
+
   @Post('cost-centers')
   @ApiOperation({ summary: 'Create a cost center' })
   createCostCenter(@Body() dto: CreateCostCenterDto) {
     return this.orgs.createCostCenter(dto);
+  }
+
+  @Patch('cost-centers/:id')
+  @ApiOperation({ summary: 'Rename / re-link / change status of a cost center (partial)' })
+  updateCostCenter(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateCostCenterDto,
+  ) {
+    return this.orgs.updateCostCenter(id, dto);
+  }
+
+  @Put('cost-centers/:id')
+  @ApiOperation({ summary: 'Replace a cost center (name required)' })
+  replaceCostCenter(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateCostCenterDto,
+  ) {
+    return this.orgs.updateCostCenter(id, dto, { requireName: true });
+  }
+
+  @Delete('cost-centers/:id')
+  @ApiOperation({ summary: 'Deactivate (soft-delete) a cost center' })
+  deactivateCostCenter(@Param('id', ParseUUIDPipe) id: string) {
+    return this.orgs.deactivateCostCenter(id);
   }
 
   @Get('cost-centers/report')

@@ -3,7 +3,7 @@
 **Autonomous Enterprise SaaS Platform**
 
 Archive: `business-os-backend-epic-b-complete.tar.gz`  
-Full e2e: **42/42 suites, 174/174 tests PASS** (verified on a fresh database, 2026-10-31)
+Full e2e: **42/42 suites, 177/177 tests PASS** (verified on a fresh database, 2026-10-31)
 
 ---
 
@@ -109,7 +109,7 @@ npm run seed
 npm run test:e2e
 ```
 
-Expected: **42 suites passed, 174 tests passed**.
+Expected: **42 suites passed, 177 tests passed**.
 
 ---
 
@@ -159,3 +159,40 @@ Password for all: `Password123!`
 ---
 
 *Generated: 2026-10-31*
+
+---
+
+## EPIC C – Enterprise Platform
+
+### C1 Audit & Compliance Platform
+- Tables: `audit_events`, `audit_exports`, `audit_retention_policies`, `compliance_reports`
+- APIs: `GET /audit`, `/audit/search`, `/audit/export` (csv | excel | pdf), `/audit/reports`,
+  `/audit/retention`, `/audit/metrics`
+- Tenant-isolated search, 4 compliance reports, retention 90 / 180 / 365 / custom
+- Audit trace id is carried from the request (`x-request-id`) into the stored event
+
+### C2 Organization Structure
+- Tables: `enterprise_organizations`, `enterprise_departments`, `enterprise_teams`,
+  `cost_centers`, `org_memberships`
+- Create/list: `POST|GET /org/organizations`, `POST /org/departments|teams|cost-centers`,
+  `POST /org/memberships`, `POST /org/memberships/:id/move`,
+  `POST /org/departments/:id/manager`, `POST /org/teams/:id/lead`
+- Maintenance: `PATCH|PUT|DELETE /org/{organizations|departments|teams|cost-centers}/:id`
+  - `PATCH` = partial (rename / move / status), `PUT` = full replace (`name` required)
+  - `DELETE` = **soft deactivate** (`status = inactive`); hierarchy checks reject cycles
+- Reports: `GET /org/tree`, `/org/statistics`, `/org/cost-centers/report`, `/org/metrics`
+
+### C3 Enterprise Identity (OIDC + Entra)
+- Tables: `identity_providers`, `identity_mappings`, `sso_sessions`
+- APIs: `/identity/providers` (create / list / enable / disable), `/identity/providers/:code/discovery`,
+  `GET /identity/login/:code`, `POST /identity/callback`, `GET /identity/sessions`, `/identity/metrics`
+- **id_token verification**: RS256/RS384/RS512 via the provider JWKS (`kid` selection, 10-minute cache,
+  refresh on key rotation); HS256 kept only for internal/mock providers
+- **Callback** accepts either `code` (exchanged server-side at the token endpoint, client secret never
+  leaves the backend) or a pre-obtained `id_token`
+- **Entra**: issuer / authorize / token / JWKS derived from `entraTenantId` (required at creation)
+- Auto-provisioning: user → membership → RBAC role, idempotent via `identity_mappings`
+- SAML: discovery metadata only (assertion consumer not enabled)
+
+**Tests:** `audit-compliance` (7), `enterprise-org` (3), `enterprise-identity` (5).
+

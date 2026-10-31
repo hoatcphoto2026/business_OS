@@ -14,7 +14,7 @@ import { OrgMembership } from './entities/org-membership.entity';
 import { TenantContextService } from '../../common/tenant-context/tenant-context.service';
 import { AuditService } from '../audit/audit.service';
 import { AuditAction } from '../audit/enums/audit-action.enum';
-import { OrgMembershipRole } from './enums/enterprise-org.enum';
+import { OrgMembershipRole, OrgUnitStatus } from './enums/enterprise-org.enum';
 import {
   AssignUserDto,
   CreateCostCenterDto,
@@ -23,6 +23,10 @@ import {
   CreateEnterpriseTeamDto,
   CreateOrgMembershipDto,
   MoveOrgUserDto,
+  UpdateCostCenterDto,
+  UpdateEnterpriseDepartmentDto,
+  UpdateEnterpriseOrgDto,
+  UpdateEnterpriseTeamDto,
 } from './dto/enterprise-org.dto';
 
 @Injectable()
@@ -209,6 +213,232 @@ export class EnterpriseOrgService {
     return saved;
   }
 
+  // ─── Update / deactivate (rename, move, status) ─────────────────
+
+  async updateOrganization(
+    id: string,
+    dto: UpdateEnterpriseOrgDto,
+    options: { requireName?: boolean } = {},
+  ): Promise<EnterpriseOrganization> {
+    if (options.requireName && !dto.name) {
+      throw new BadRequestException('name is required');
+    }
+    const row = await this.assertOrg(id);
+    const before = { name: row.name, status: row.status, parentId: row.parentId };
+
+    if (dto.parentId !== undefined) {
+      if (dto.parentId === id) {
+        throw new BadRequestException('Organization cannot be its own parent');
+      }
+      await this.assertOrg(dto.parentId);
+      await this.assertNoCycle(dto.parentId, id, (nodeId) => this.parentOfOrg(nodeId));
+      row.parentId = dto.parentId;
+    }
+    if (dto.name !== undefined) row.name = dto.name;
+    if (dto.status !== undefined) row.status = dto.status;
+    row.updatedBy = this.userId();
+
+    const saved = await this.orgs.save(row);
+    await this.auditSafe('enterprise_organization', saved.id, AuditAction.UPDATE, {
+      before,
+      after: { name: saved.name, status: saved.status, parentId: saved.parentId },
+    });
+    this.inc('org_units_updated_total');
+    return saved;
+  }
+
+  async deactivateOrganization(id: string): Promise<EnterpriseOrganization> {
+    const row = await this.assertOrg(id);
+    const before = row.status;
+    row.status = OrgUnitStatus.INACTIVE;
+    row.updatedBy = this.userId();
+    const saved = await this.orgs.save(row);
+    await this.auditSafe('enterprise_organization', saved.id, AuditAction.UPDATE, {
+      before,
+      after: { status: saved.status },
+    });
+    this.inc('org_units_deactivated_total');
+    return saved;
+  }
+
+  async updateDepartment(
+    id: string,
+    dto: UpdateEnterpriseDepartmentDto,
+    options: { requireName?: boolean } = {},
+  ): Promise<EnterpriseDepartment> {
+    if (options.requireName && !dto.name) {
+      throw new BadRequestException('name is required');
+    }
+    const row = await this.assertDepartment(id);
+    const before = {
+      name: row.name,
+      status: row.status,
+      parentId: row.parentId,
+      costCenterId: row.costCenterId,
+    };
+
+    if (dto.parentId !== undefined) {
+      if (dto.parentId === id) {
+        throw new BadRequestException('Department cannot be its own parent');
+      }
+      const parent = await this.assertDepartment(dto.parentId);
+      if (parent.organizationId !== row.organizationId) {
+        throw new BadRequestException('Parent department belongs to another organization');
+      }
+      await this.assertNoCycle(dto.parentId, id, (nodeId) => this.parentOfDepartment(nodeId));
+      row.parentId = dto.parentId;
+    }
+    if (dto.costCenterId !== undefined) {
+      await this.assertCostCenter(dto.costCenterId, row.organizationId);
+      row.costCenterId = dto.costCenterId;
+    }
+    if (dto.name !== undefined) row.name = dto.name;
+    if (dto.status !== undefined) row.status = dto.status;
+    row.updatedBy = this.userId();
+
+    const saved = await this.departments.save(row);
+    await this.auditSafe('enterprise_department', saved.id, AuditAction.UPDATE, {
+      before,
+      after: {
+        name: saved.name,
+        status: saved.status,
+        parentId: saved.parentId,
+        costCenterId: saved.costCenterId,
+      },
+    });
+    this.inc('org_units_updated_total');
+    return saved;
+  }
+
+  async deactivateDepartment(id: string): Promise<EnterpriseDepartment> {
+    const row = await this.assertDepartment(id);
+    const before = row.status;
+    row.status = OrgUnitStatus.INACTIVE;
+    row.updatedBy = this.userId();
+    const saved = await this.departments.save(row);
+    await this.auditSafe('enterprise_department', saved.id, AuditAction.UPDATE, {
+      before,
+      after: { status: saved.status },
+    });
+    this.inc('org_units_deactivated_total');
+    return saved;
+  }
+
+  async updateTeam(
+    id: string,
+    dto: UpdateEnterpriseTeamDto,
+    options: { requireName?: boolean } = {},
+  ): Promise<EnterpriseTeam> {
+    if (options.requireName && !dto.name) {
+      throw new BadRequestException('name is required');
+    }
+    const row = await this.assertTeam(id);
+    const before = {
+      name: row.name,
+      status: row.status,
+      parentId: row.parentId,
+      departmentId: row.departmentId,
+    };
+
+    if (dto.departmentId !== undefined) {
+      const department = await this.assertDepartment(dto.departmentId);
+      row.departmentId = department.id;
+      row.organizationId = department.organizationId;
+    }
+    if (dto.parentId !== undefined) {
+      if (dto.parentId === id) {
+        throw new BadRequestException('Team cannot be its own parent');
+      }
+      const parent = await this.assertTeam(dto.parentId);
+      if (parent.departmentId !== row.departmentId) {
+        throw new BadRequestException('Parent team belongs to another department');
+      }
+      await this.assertNoCycle(dto.parentId, id, (nodeId) => this.parentOfTeam(nodeId));
+      row.parentId = dto.parentId;
+    }
+    if (dto.name !== undefined) row.name = dto.name;
+    if (dto.status !== undefined) row.status = dto.status;
+    row.updatedBy = this.userId();
+
+    const saved = await this.teams.save(row);
+    await this.auditSafe('enterprise_team', saved.id, AuditAction.UPDATE, {
+      before,
+      after: {
+        name: saved.name,
+        status: saved.status,
+        parentId: saved.parentId,
+        departmentId: saved.departmentId,
+      },
+    });
+    this.inc('org_units_updated_total');
+    return saved;
+  }
+
+  async deactivateTeam(id: string): Promise<EnterpriseTeam> {
+    const row = await this.assertTeam(id);
+    const before = row.status;
+    row.status = OrgUnitStatus.INACTIVE;
+    row.updatedBy = this.userId();
+    const saved = await this.teams.save(row);
+    await this.auditSafe('enterprise_team', saved.id, AuditAction.UPDATE, {
+      before,
+      after: { status: saved.status },
+    });
+    this.inc('org_units_deactivated_total');
+    return saved;
+  }
+
+  async updateCostCenter(
+    id: string,
+    dto: UpdateCostCenterDto,
+    options: { requireName?: boolean } = {},
+  ): Promise<CostCenter> {
+    if (options.requireName && !dto.name) {
+      throw new BadRequestException('name is required');
+    }
+    const row = await this.costCenters.findOne({
+      where: { id, tenantId: this.tenantId() },
+    });
+    if (!row) throw new NotFoundException('Cost center not found');
+    const before = { name: row.name, status: row.status, departmentId: row.departmentId };
+
+    if (dto.departmentId !== undefined) {
+      const department = await this.assertDepartment(dto.departmentId);
+      if (department.organizationId !== row.organizationId) {
+        throw new BadRequestException('Department belongs to another organization');
+      }
+      row.departmentId = department.id;
+    }
+    if (dto.name !== undefined) row.name = dto.name;
+    if (dto.status !== undefined) row.status = dto.status;
+    row.updatedBy = this.userId();
+
+    const saved = await this.costCenters.save(row);
+    await this.auditSafe('cost_center', saved.id, AuditAction.UPDATE, {
+      before,
+      after: { name: saved.name, status: saved.status, departmentId: saved.departmentId },
+    });
+    this.inc('org_units_updated_total');
+    return saved;
+  }
+
+  async deactivateCostCenter(id: string): Promise<CostCenter> {
+    const row = await this.costCenters.findOne({
+      where: { id, tenantId: this.tenantId() },
+    });
+    if (!row) throw new NotFoundException('Cost center not found');
+    const before = row.status;
+    row.status = OrgUnitStatus.INACTIVE;
+    row.updatedBy = this.userId();
+    const saved = await this.costCenters.save(row);
+    await this.auditSafe('cost_center', saved.id, AuditAction.UPDATE, {
+      before,
+      after: { status: saved.status },
+    });
+    this.inc('org_units_deactivated_total');
+    return saved;
+  }
+
   async tree(organizationId: string) {
     const root = await this.assertOrg(organizationId);
     const tenantId = this.tenantId();
@@ -287,6 +517,7 @@ export class EnterpriseOrgService {
       id: org.id,
       code: org.code,
       name: org.name,
+      status: org.status,
       departments: this.buildDepartments(null, orgDepartments, teams, members),
       children: organizations
         .filter((row) => row.parentId === org.id)
@@ -306,6 +537,7 @@ export class EnterpriseOrgService {
         id: department.id,
         code: department.code,
         name: department.name,
+        status: department.status,
         managerId: department.managerId,
         children: this.buildDepartments(department.id, departments, teams, members),
         teams: this.buildTeams(department.id, null, teams, members),
@@ -324,6 +556,7 @@ export class EnterpriseOrgService {
         id: team.id,
         code: team.code,
         name: team.name,
+        status: team.status,
         leadId: team.leadId,
         users: members
           .filter((row) => row.teamId === team.id)
@@ -408,6 +641,16 @@ export class EnterpriseOrgService {
     if (!row || row.organizationId !== organizationId) {
       throw new NotFoundException('Cost center not found');
     }
+  }
+
+  private async parentOfOrg(id: string): Promise<string | null> {
+    const row = await this.orgs.findOne({ where: { id, tenantId: this.tenantId() } });
+    return row?.parentId ?? null;
+  }
+
+  private async parentOfTeam(id: string): Promise<string | null> {
+    const row = await this.teams.findOne({ where: { id, tenantId: this.tenantId() } });
+    return row?.parentId ?? null;
   }
 
   private async parentOfDepartment(id: string): Promise<string | null> {
