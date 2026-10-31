@@ -662,8 +662,8 @@ they never delete their rows. Two helpers keep the database predictable.
 ### 0. One command (dùng trước khi tạo PR)
 
 ```bash
-npm run verify        # build → unit test → full e2e trên DB tạm (41 suites / 171 tests)
-npm run verify:fast   # chỉ build + unit (khi sửa nhỏ, ~30s)
+npm run verify        # lint → build → unit → full e2e trên DB tạm (41 suites / 171 tests)
+npm run verify:fast   # lint + build + unit (khi sửa nhỏ)
 ```
 
 ### 1. Run e2e on a throw-away database (recommended)
@@ -704,8 +704,21 @@ Demo subscription/plan baseline is restored by `npm run seed`
 `.github/workflows/ci.yml` runs on every push/PR:
 
 ```
-npm ci → npm run build → npm test -- --runInBand
+npm ci → npm run lint:check → npm run build → npm test -- --runInBand
        → npm run migration:run → npm run seed
        → npm run test:e2e -- --runInBand   # FULL suite (41 suites / 171 tests)
 ```
+
+### 4. Production hardening (đã bật)
+
+| Lớp | Cấu hình |
+|---|---|
+| Security headers | `helmet` trong `src/main.ts` (CSP tắt ở dev để Swagger UI chạy, bật default ở production) |
+| Rate limit toàn cục | `ThrottlerGuard` (APP_GUARD): `THROTTLE_TTL_MS` (mặc định 60000) × `THROTTLE_LIMIT` (mặc định 300) / IP |
+| Rate limit admin | `AdminRateLimitGuard`: `ADMIN_MUTATE_LIMIT` (mặc định 30 mutation/phút/admin) |
+| Secret bắt buộc | `JWT_SECRET`, `BANKING_WEBHOOK_SECRET`, `PAYMENT_WEBHOOK_SECRET` ≥ 32 ký tự khi `NODE_ENV=production` (fail-closed) |
+| CORS | `CORS_ORIGIN` danh sách phẩy; production mà unset ⇒ CORS tắt |
+| Proxy | `TRUST_PROXY=<số hop>` khi chạy sau nginx/ALB để rate-limit theo IP thật |
+
+Xem toàn bộ biến trong `.env.example`.
 

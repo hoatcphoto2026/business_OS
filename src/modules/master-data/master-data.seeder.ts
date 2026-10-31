@@ -14,7 +14,7 @@ export async function seedMasterDataDefaults(dataSource: DataSource, tenantId: s
   const taxRepo = dataSource.getRepository(Tax);
   const termRepo = dataSource.getRepository(PaymentTerm);
 
-  let created = { currencies: 0, uoms: 0, taxes: 0, terms: 0 };
+  const created = { currencies: 0, uoms: 0, taxes: 0, terms: 0 };
 
   // Currencies
   const currencyDefs = [

@@ -6,8 +6,9 @@ import {
 } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { APP_INTERCEPTOR } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 
 import { TenantModule } from './modules/tenant/tenant.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -150,6 +151,17 @@ import { PaymentTransaction } from './modules/billing/entities/payment-transacti
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    // Global rate limit (per IP). Values come from .env via ConfigService.
+    ThrottlerModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => [
+        {
+          ttl: Number(config.get('THROTTLE_TTL_MS', 60000)),
+          limit: Number(config.get('THROTTLE_LIMIT', 300)),
+        },
+      ],
+    }),
     ScheduleModule.forRoot(),
     TenantContextModule,
     TypeOrmModule.forRootAsync({
@@ -302,6 +314,11 @@ import { PaymentTransaction } from './modules/billing/entities/payment-transacti
     ...(process.env.NODE_ENV !== 'production' ? [DemoModule] : []),
   ],
   providers: [
+    // Global HTTP rate limit (per client IP, in-memory). Override via env.
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
     {
       provide: APP_INTERCEPTOR,
       useClass: TenantContextInterceptor,

@@ -2,6 +2,7 @@ import './tracing';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -19,6 +20,22 @@ async function bootstrap() {
     }
   }
 
+
+  // Security headers (helmet). CSP is disabled outside production so the
+  // Swagger UI at /api/docs keeps working; API responses still get the rest
+  // of the helmet defaults (nosniff, frame-deny, HSTS, referrer policy…).
+  app.use(
+    helmet({
+      contentSecurityPolicy: isProd ? undefined : false,
+    }),
+  );
+
+  // Only trust X-Forwarded-* when explicitly configured (proxy / load balancer).
+  if (process.env.TRUST_PROXY) {
+    const hops = Number(process.env.TRUST_PROXY);
+    const httpServer = app.getHttpAdapter().getInstance();
+    httpServer.set('trust proxy', Number.isFinite(hops) && hops > 0 ? hops : 1);
+  }
 
   // Explicit CORS
   app.enableCors({

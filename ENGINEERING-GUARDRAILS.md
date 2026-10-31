@@ -53,12 +53,20 @@ Sau `npm run seed`, **DB trắng** phải dùng được ngay:
 
 Thêm bảng/feature mới ⇒ cập nhật seeder tương ứng, đừng để e2e phải "tự tạo nền".
 
+### 1.7 Hardening (đã bật, giữ nguyên)
+- `helmet` bật trong `src/main.ts` (CSP tắt ở dev cho Swagger UI, bật ở production).
+- `ThrottlerGuard` là `APP_GUARD` toàn cục: `THROTTLE_TTL_MS` × `THROTTLE_LIMIT` theo IP.
+  Endpoint public mới cân nhắc `@Throttle` chặt hơn hoặc `@SkipThrottle` (có lý do rõ ràng).
+- Production **fail-closed**: `JWT_SECRET`, `BANKING_WEBHOOK_SECRET`, `PAYMENT_WEBHOOK_SECRET` ≥ 32 ký tự.
+- Chạy sau proxy/LB ⇒ phải set `TRUST_PROXY` để rate limit dùng IP thật.
+
 ---
 
 ## 2. Definition of Done — verify trước khi báo "xong"
 
-- [ ] `npm run verify` → build + unit + e2e isolated (baseline hiện tại: **41 suites / 171 tests PASS**)
-- [ ] Sửa nhỏ thì chạy nhanh `npm run verify:fast` (build + unit)
+- [ ] `npm run verify` → lint + build + unit + e2e isolated (baseline hiện tại: **41 suites / 171 tests PASS**)
+- [ ] Sửa nhỏ thì chạy nhanh `npm run verify:fast` (lint + build + unit)
+- [ ] Muốn xem warning của lint: `npm run lint:check` (CI fail khi có **error**, warning không chặn)
 - [ ] Nếu chạm auth / guard / billing / seed: chạy lại với `NODE_ENV=test` (parity CI)
 - [ ] Smoke test login: `admin@abctrading.vn` / `Password123!` / tenant `ABC` → 200 + accessToken
 - [ ] Báo **số liệu thật** của lần chạy vừa rồi (không copy số cũ, không suy đoán)
@@ -104,6 +112,8 @@ Thêm bảng/feature mới ⇒ cập nhật seeder tương ứng, đừng để 
 | 5 | Suite billing/license/invoice fail trên DB trắng | Test "chấp nhận 412" rồi vẫn assert như đã đổi plan | `test/license.e2e-spec.ts` (step-up flow thật) |
 | 6 | DB phình 121 tenant / 274 user | e2e không teardown | `scripts/purge-test-data.ts`, `scripts/run-e2e-isolated.js` |
 | 7 | CI xanh nhưng thực tế 3 suite fail | CI chỉ chạy `administration` | `.github/workflows/ci.yml` (full e2e) |
+| 8 | `npm run lint` lỗi vì thiếu `eslint` | Script khai báo nhưng dependency chưa cài; config test còn trỏ `/tmp` | `.eslintrc.js`, devDeps `eslint` + `@typescript-eslint/*`, CI step `lint:check` |
+| 9 | Thiếu header bảo mật & rate limit toàn cục | Chưa có `helmet`, chưa có giới hạn request theo IP | `src/main.ts` (helmet + `TRUST_PROXY`), `src/app.module.ts` (`ThrottlerGuard` + `THROTTLE_*`) |
 
 ---
 
@@ -125,8 +135,8 @@ Thêm bảng/feature mới ⇒ cập nhật seeder tương ứng, đừng để 
 
 ```bash
 # Verify đầy đủ (không bẩn DB dev) — 1 lệnh duy nhất
-npm run verify                         # build → unit → e2e isolated
-npm run verify:fast                    # build + unit (sửa nhỏ)
+npm run verify                         # lint → build → unit → e2e isolated
+npm run verify:fast                    # lint + build + unit (sửa nhỏ)
 
 # Debug 1 suite trên DB tạm
 npm run test:e2e:isolated -- billing --keep

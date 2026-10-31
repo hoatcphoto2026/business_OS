@@ -45,9 +45,10 @@
 Commands run (paste the **actual** result lines, not old ones):
 
 ```bash
-npm run verify          # build + unit + isolated e2e
+npm run verify          # lint + build + unit + isolated e2e
 ```
 
+- [ ] `npm run lint:check` — no **errors** (`__ warnings`)
 - [ ] `npm run build` — OK
 - [ ] `npm test -- --runInBand` — `__ suites / __ tests passed`
 - [ ] `npm run test:e2e:isolated` — `__ suites / __ tests passed` (baseline: 41/171 as of 2026-10-31)
