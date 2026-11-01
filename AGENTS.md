@@ -11,7 +11,7 @@ Non-negotiables (short version):
 3. JWT principal field is `req.user.userId` (not `.id` / `.sub`).
 4. Sensitive mutations require real step-up flow — never loosen test assertions to pass.
 5. `npm run seed` on an empty DB must leave `ABC` + `CAFE_MOC` with ACTIVE subscriptions.
-6. Verify with `npm run verify` — lint + build + unit + isolated e2e (53 suites / 280 tests).
+6. Verify with `npm run verify` — lint + build + unit + isolated e2e (54 suites / 291 tests).
 7. Supply chain: CI runs `npm run audit:gate`; never bypass it. JWT in production is RS256-first
    (HS256 blocked), and file endpoints must use `buildMulterOptions()` + multipart limit middleware.
 

@@ -746,6 +746,57 @@ operator-tenant storage + audit trail.
 
 ---
 
+### D8 Analytics Warehouse Layer
+
+**Goal:** unified analytical datasets for dashboards — star schema with daily ETL, snapshots,
+historical storage and trend calculations.
+
+**Dimensions (5):** `warehouse_dim_tenants`, `warehouse_dim_plans`, `warehouse_dim_organizations`,
+`warehouse_dim_departments`, `warehouse_dim_dates` (date spine, 365+ days, surrogate `YYYYMMDD` key).
+All rows are owned by the operator tenant; `source_*` columns reference the measured entity.
+
+**Facts (5), daily grain:**
+
+| Fact | Grain | Measures |
+|---|---|---|
+| `fact_revenue` | day × tenant × plan | paid revenue, invoice count, MRR, active subscriptions |
+| `fact_usage` | day × tenant × metric | quantity, event count (+ optional org/department) |
+| `fact_customer` | day × tenant | active users, logins, tickets, health score, churn flag |
+| `fact_compliance` | day × tenant | evidence total/verified, open/critical risks, compliance score |
+| `fact_security` | day × tenant | security events, critical events, failed logins, open alerts, risk score |
+
+**ETL / snapshots:**
+- `POST /warehouse/etl` refreshes dimensions and upserts facts for a window (default 7 days).
+  Unique grain constraints + `ON CONFLICT DO UPDATE` make reruns idempotent.
+- `POST /warehouse/snapshots` aggregates facts into `warehouse_snapshots` (DAILY/MONTHLY,
+  unique per `(tenant, snapshot_date, period)`): revenue, MRR, usage, active users, tickets,
+  health, compliance, security. Re-generating updates the same row.
+- Historical storage stays in fact tables; snapshots are cheap read models for the dashboard.
+
+**APIs (JWT + `admin.access` + platform operator):**
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/warehouse` | 30-day totals, dimension counts, latest snapshot, revenue/usage/security trends |
+| POST | `/warehouse/etl` | `from`, `to`, `refreshDimensions` |
+| POST | `/warehouse/snapshots` | `period` (DAILY/MONTHLY), `date` |
+| GET | `/warehouse/snapshots` | filter `period`, limit |
+| GET | `/warehouse/trends` | `metric` (REVENUE/USAGE/ACTIVE_USERS/TICKETS/COMPLIANCE_SCORE/SECURITY_EVENTS), `days`; zero-filled series + total/avg/min/max/changePct |
+| GET | `/warehouse/facts` | `fact`, `from`, `to`, `sourceTenantId`, `planCode`, `metric`, `organizationId`, `departmentId`, `limit` (camelCase rows) |
+| GET | `/warehouse/dimensions` | date spine range + tenants/plans/orgs/departments |
+| GET | `/warehouse/metrics` | Prometheus text |
+
+**Instrumentation:** `warehouse_etl_runs_total{status}`, `warehouse_fact_rows_total{fact}`,
+gauges `warehouse_fact_rows{fact}`, `warehouse_snapshots_total{period}`, `warehouse_revenue_30d`,
+`warehouse_usage_30d`, `warehouse_security_events_30d`, `warehouse_snapshot_*`; audit
+`warehouse_etl` and `warehouse_snapshot`.
+
+**Tests:** `warehouse` (11) — operator gate, ETL window counts, idempotent rerun, fact values for
+revenue/usage/compliance/security/customer, filter + range validation, overview, trends, idempotent
+daily/monthly snapshots, dimension catalog, Prometheus, operator-tenant storage + audit trail.
+
+---
+
 ### Supply-chain & payload hardening (2026-11-01)
 
 - **Critical advisory removed**: `bcrypt` (native, pulled `tar@6` critical + `@mapbox/node-pre-gyp`)

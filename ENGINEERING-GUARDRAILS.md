@@ -2,7 +2,7 @@
 
 > **Đọc file này trước khi sửa code.** Đây là "bộ nhớ dài hạn" của dự án:
 > các lỗi thật đã từng xảy ra, cách phòng tránh, và Definition of Done.
-> Cập nhật lần cuối: 2026-11-01 (D6 executive dashboard, D7 forecast engine + supply-chain hardening).
+> Cập nhật lần cuối: 2026-11-01 (D6 dashboard, D7 forecast, D8 warehouse + supply-chain hardening).
 
 ---
 
@@ -196,11 +196,29 @@ Thêm bảng/feature mới ⇒ cập nhật seeder tương ứng, đừng để 
 - Chạy lại chỉ subset (metric/method/horizon) không được nhân bản model; `lastRunAt` cập nhật, tổng model giữ 15.
 - Seed contract: sau `npm run seed`, operator `ABC` có đủ 15 model ACTIVE.
 
+### 1.19 Analytics warehouse (D8)
+- Star schema: 5 dimension (`warehouse_dim_tenants|plans|organizations|departments|dates`) + 5 fact
+  (`fact_revenue|usage|customer|compliance|security`) + `warehouse_snapshots`. Mọi bảng
+  `extends BaseTenantEntity` với `tenant_id` = tenant operator; `source_tenant_id` = tenant bị đo.
+- Grain fact = 1 dòng / ngày / source tenant (/ metric hoặc plan). Unique constraint đúng grain
+  ⇒ ETL `ON CONFLICT DO UPDATE` là idempotent; chạy lại cùng window không nhân bản dữ liệu.
+- `POST /warehouse/etl` nhận `from/to` (mặc định 7 ngày), refresh dimensions + 5 facts, ghi audit
+  `entity_type = warehouse_etl`; trả counts thật. `refreshDimensions=false` để chạy nhanh.
+- Dimension date là spine `CURRENT_DATE ±` (đủ 365+ ngày) — seed sẵn để dashboard không phụ thuộc ETL.
+- Fact API trả **camelCase** (`factDate`, `revenueAmount`…), cột `date` format theo local date
+  (không dùng `toISOString()`), và validate `from <= to` (nếu không → 400).
+- Overview/trends dùng `generate_series` zero-fill theo DB `CURRENT_DATE`; snapshot unique
+  `(tenant, snapshot_date, period_type)` nên generate lại chỉ update, không tạo bản ghi mới.
+- Prometheus: `warehouse_etl_runs_total{status}`, `warehouse_fact_rows_total{fact}`,
+  `warehouse_fact_rows{fact}`, `warehouse_snapshots_total{period}`, `warehouse_revenue_30d`,
+  `warehouse_snapshot_*`; audit `warehouse_snapshot`.
+- Seed contract: sau `npm run seed`, operator `ABC` có date spine + plans + tenants + orgs + departments.
+
 ---
 
 ## 2. Definition of Done — verify trước khi báo "xong"
 
-- [ ] `npm run verify` → lint + build + unit + e2e isolated (baseline hiện tại: **53 suites / 280 tests PASS**)
+- [ ] `npm run verify` → lint + build + unit + e2e isolated (baseline hiện tại: **54 suites / 291 tests PASS**)
 - [ ] Sửa nhỏ thì chạy nhanh `npm run verify:fast` (lint + build + unit)
 - [ ] Muốn xem warning của lint: `npm run lint:check` (CI fail khi có **error**, warning không chặn)
 - [ ] Nếu chạm auth / guard / billing / seed: chạy lại với `NODE_ENV=test` (parity CI)

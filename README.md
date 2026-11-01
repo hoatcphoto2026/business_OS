@@ -662,7 +662,7 @@ they never delete their rows. Two helpers keep the database predictable.
 ### 0. One command (dùng trước khi tạo PR)
 
 ```bash
-npm run verify        # lint → build → unit → full e2e trên DB tạm (53 suites / 280 tests)
+npm run verify        # lint → build → unit → full e2e trên DB tạm (54 suites / 291 tests)
 npm run verify:fast   # lint + build + unit (khi sửa nhỏ)
 ```
 
@@ -716,7 +716,7 @@ Demo subscription/plan baseline is restored by `npm run seed`
 ```
 npm ci → npm run audit:gate → npm run lint:check → npm run build → npm test -- --runInBand
        → npm run migration:run → npm run seed
-       → npm run test:e2e -- --runInBand   # FULL suite (53 suites / 280 tests)
+       → npm run test:e2e -- --runInBand   # FULL suite (54 suites / 291 tests)
 ```
 
 ### 4. Production hardening (đã bật)

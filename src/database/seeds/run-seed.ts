@@ -15,6 +15,7 @@ import { seedHealthSignals } from './health.seeder';
 import { seedProductAnalytics } from './product-analytics.seeder';
 import { seedGrowthSnapshot } from './growth.seeder';
 import { seedForecastModels } from './forecast.seeder';
+import { seedWarehouseDimensions } from './warehouse.seeder';
 import { seedMasterDataDefaults } from '../../modules/master-data/master-data.seeder';
 import { Tenant } from '../../modules/tenant/entities/tenant.entity';
 
@@ -72,6 +73,7 @@ async function run() {
     await seedProductAnalytics(dataSource);
     await seedGrowthSnapshot(dataSource);
     await seedForecastModels(dataSource);
+    await seedWarehouseDimensions(dataSource);
   } finally {
     await dataSource.destroy();
   }

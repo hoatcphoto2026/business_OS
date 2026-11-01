@@ -111,6 +111,22 @@ import { ForecastModule } from './modules/forecast/forecast.module';
 import { ForecastModel } from './modules/forecast/entities/forecast-model.entity';
 import { ForecastRun } from './modules/forecast/entities/forecast-run.entity';
 import { ForecastResult } from './modules/forecast/entities/forecast-result.entity';
+import { WarehouseModule } from './modules/warehouse/warehouse.module';
+import {
+  FactCompliance,
+  FactCustomer,
+  FactRevenue,
+  FactSecurity,
+  FactUsage,
+  WarehouseSnapshot,
+} from './modules/warehouse/entities/warehouse-facts.entity';
+import {
+  WarehouseDimDate,
+  WarehouseDimDepartment,
+  WarehouseDimOrganization,
+  WarehouseDimPlan,
+  WarehouseDimTenant,
+} from './modules/warehouse/entities/warehouse-dimensions.entity';
 import { FeatureUsage } from './modules/product-analytics/entities/feature-usage.entity';
 import { FeatureAdoption } from './modules/product-analytics/entities/feature-adoption.entity';
 import { FeatureTrend } from './modules/product-analytics/entities/feature-trend.entity';
@@ -272,6 +288,17 @@ import { PaymentTransaction } from './modules/billing/entities/payment-transacti
           ForecastModel,
           ForecastRun,
           ForecastResult,
+          WarehouseDimTenant,
+          WarehouseDimPlan,
+          WarehouseDimOrganization,
+          WarehouseDimDepartment,
+          WarehouseDimDate,
+          FactRevenue,
+          FactUsage,
+          FactCustomer,
+          FactCompliance,
+          FactSecurity,
+          WarehouseSnapshot,
           UserCompany,
           UserBranch,
           UserDepartment,
@@ -403,6 +430,7 @@ import { PaymentTransaction } from './modules/billing/entities/payment-transacti
     ProductAnalyticsModule,
     GrowthModule,
     ForecastModule,
+    WarehouseModule,
     ...(process.env.NODE_ENV !== 'production' ? [DemoModule] : []),
   ],
   providers: [
