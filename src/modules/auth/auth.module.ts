@@ -14,6 +14,7 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { AuditModule } from '../audit/audit.module';
+import { SecurityModule } from '../security/security.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { AuditModule } from '../audit/audit.module';
       }),
     }),
     AuditModule,
+    SecurityModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy],

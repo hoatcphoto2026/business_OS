@@ -285,6 +285,54 @@ retention report, security report + Prometheus metrics, snapshot/dashboard/analy
 
 ---
 
+### C6 Enterprise Security Hardening
+
+**Entities:** `security_events` (type/severity/status/source, actor, IP, country, risk score, dedupe key,
+acknowledge/resolve metadata), `security_login_attempts` (success/failure, reason, IP, country,
+`anomalous` flag), `security_login_locations` (learned country baseline per user),
+`security_alert_rules` (event type, threshold, window, severity, channels, trigger count),
+`security_secret_rotations` (resource type/id, reason, rotated by), `security_emergency_access`
+(requester, approver, scope, status, expiry).
+
+**APIs (JWT + `admin.access`):**
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/security/dashboard` · `/security/threats` | posture + monitoring (top IPs/identities, open criticals) |
+| GET | `/security/events` · `/security/events/:id` | list/filter · detail |
+| POST | `/security/events/:id/acknowledge` · `/resolve` | incident workflow |
+| GET | `/security/audit-trail` | security audit logs from `audit_logs` |
+| POST | `/security/detect/failed-logins` · `/suspicious-activity` · `/geo-anomalies` · `/all` | detections |
+| GET | `/security/login-attempts` · `/login-locations` | login signals · geo baseline |
+| GET/POST/PATCH | `/security/alert-rules` | alert rule CRUD |
+| GET | `/security/rotations` | rotation history |
+| POST | `/security/rotations/api-keys/:id` · `/scim-endpoints/:id` · `/webhooks/:id` | **step-up** (`security.rotate-*`), plaintext returned once |
+| GET/POST | `/security/emergency-access` | list (auto-expires stale) · request break-glass |
+| POST | `/security/emergency-access/:id/approve` · `/revoke` | **step-up** (`security.emergency-access`), approve must be a different admin |
+| GET | `/security/metrics` | Prometheus text (shared registry) |
+
+**Capabilities:** failed-login / brute-force detection (per email, window + threshold), suspicious-activity
+detection (multi-IP logins, failed-then-success credential stuffing), geo-anomaly architecture
+(trusted `x-country-code` header → per-user country baseline → first-seen-from-new-country event),
+security event lifecycle (OPEN → ACKNOWLEDGED → RESOLVED), tenant alert rules with seeded defaults and
+threshold evaluation, secret + API-key + SCIM-token + webhook-secret rotation behind real step-up,
+persistent break-glass emergency access with dual control and automatic expiry, security audit trail,
+Prometheus counters (`security_events_total`, `security_login_attempts_total{result,reason}`,
+`security_detections_total{type}`, `security_alerts_triggered_total`, `security_secret_rotations_total`,
+`security_emergency_access_total{status}`).
+
+**Auth integration:** `AuthService` records every login attempt (success and failure reasons
+`INVALID_PASSWORD`, `UNKNOWN_USER`, `NO_TENANT`, `TENANT_MISMATCH`) and updates the geo baseline on success.
+Telemetry never blocks authentication. `x-country-code` is only trustworthy when the edge proxy strips
+client-supplied copies (documented in `.env.example` / deployment notes).
+
+**Tests:** `enterprise-security` (11) — authz, seeded alert rules + CRUD, failed-login detection + dedupe,
+credential-stuffing detection, geo anomaly vs baseline, event acknowledge/resolve + audit trail,
+alert threshold firing, step-up-protected rotations (API key/SCIM/webhook), dual-control emergency access,
+threat monitoring + metrics + login signals, tenant isolation.
+
+---
+
 ### Shared Prometheus registry (observability)
 
 Every module now increments **one** `prom-client` registry (`src/common/metrics/metrics.service.ts`)

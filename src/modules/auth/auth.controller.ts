@@ -40,13 +40,27 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   async login(@Body() dto: LoginDto, @Req() req: any) {
-    const meta = extractRequestMeta(req);
+    const meta = { ...extractRequestMeta(req), ...this.geoFromHeaders(req) };
     return this.authService.validateAndLogin(
       dto.email,
       dto.password,
       dto.tenant,
       meta,
     );
+  }
+
+  /**
+   * Geo signal for anomaly detection. Production deployments behind a trusted
+   * proxy/CDN populate `x-country-code`; clients cannot spoof it when the edge
+   * strips inbound copies (documented in README-EPIC-A-B).
+   */
+  private geoFromHeaders(req: any): { country?: string; city?: string } {
+    const rawCountry = String(req.headers['x-country-code'] ?? '')
+      .trim()
+      .toUpperCase();
+    const country = /^[A-Z]{2}$/.test(rawCountry) ? rawCountry : undefined;
+    const rawCity = String(req.headers['x-city'] ?? '').trim().slice(0, 100);
+    return { country, city: rawCity || undefined };
   }
 
   /**

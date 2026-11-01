@@ -79,6 +79,13 @@ import { EvidenceRecord } from './modules/compliance/entities/evidence-record.en
 import { AccessReview } from './modules/compliance/entities/access-review.entity';
 import { RiskAssessment } from './modules/compliance/entities/risk-assessment.entity';
 import { ComplianceSnapshot } from './modules/compliance/entities/compliance-snapshot.entity';
+import { SecurityModule } from './modules/security/security.module';
+import { SecurityEvent } from './modules/security/entities/security-event.entity';
+import { LoginAttempt } from './modules/security/entities/login-attempt.entity';
+import { LoginLocation } from './modules/security/entities/login-location.entity';
+import { AlertRule } from './modules/security/entities/alert-rule.entity';
+import { SecretRotation } from './modules/security/entities/secret-rotation.entity';
+import { EmergencyAccess } from './modules/security/entities/emergency-access.entity';
 import { IdentityProvider } from './modules/identity/entities/identity-provider.entity';
 import { IdentityMapping } from './modules/identity/entities/identity-mapping.entity';
 import { SSOSession } from './modules/identity/entities/sso-session.entity';
@@ -210,6 +217,12 @@ import { PaymentTransaction } from './modules/billing/entities/payment-transacti
           AccessReview,
           RiskAssessment,
           ComplianceSnapshot,
+          SecurityEvent,
+          LoginAttempt,
+          LoginLocation,
+          AlertRule,
+          SecretRotation,
+          EmergencyAccess,
           UserCompany,
           UserBranch,
           UserDepartment,
@@ -333,6 +346,7 @@ import { PaymentTransaction } from './modules/billing/entities/payment-transacti
     IdentityModule,
     ScimModule,
     ComplianceModule,
+    SecurityModule,
     ...(process.env.NODE_ENV !== 'production' ? [DemoModule] : []),
   ],
   providers: [

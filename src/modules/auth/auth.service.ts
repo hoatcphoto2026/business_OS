@@ -20,6 +20,13 @@ import { LoginHistory } from '../administration/entities/login-history.entity';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
 import { AuditService } from '../audit/audit.service';
 import { AuditActorOverride } from '../audit/audit.types';
+import { LoginAttemptService } from '../security/services/login-attempt.service';
+import { LoginFailureReason } from '../security/enums/security.enum';
+
+export interface LoginMeta extends Pick<AuditActorOverride, 'ipAddress' | 'userAgent'> {
+  country?: string;
+  city?: string;
+}
 
 @Injectable()
 export class AuthService {
@@ -40,24 +47,32 @@ export class AuthService {
     private readonly loginHistories: Repository<LoginHistory>,
     private readonly jwtService: JwtService,
     private readonly auditService: AuditService,
+    private readonly loginAttempts: LoginAttemptService,
   ) {}
 
   async validateAndLogin(
     email: string,
     password: string,
     tenantCodeOrSlug?: string,
-    meta?: Pick<AuditActorOverride, 'ipAddress' | 'userAgent'>,
+    meta?: LoginMeta,
   ) {
     const user = await this.userRepo.findOne({
       where: { email, isActive: true },
     });
 
     if (!user) {
+      await this.recordAttempt(email, false, LoginFailureReason.UNKNOWN_USER, meta, {
+        tenantId: await this.resolveTenantId(tenantCodeOrSlug),
+      });
       throw new UnauthorizedException('Invalid credentials');
     }
 
     const ok = await bcrypt.compare(password, user.passwordHash);
     if (!ok) {
+      await this.recordAttempt(email, false, LoginFailureReason.INVALID_PASSWORD, meta, {
+        tenantId: await this.resolveTenantId(tenantCodeOrSlug),
+        userId: user.id,
+      });
       throw new UnauthorizedException('Invalid credentials');
     }
 
@@ -77,6 +92,9 @@ export class AuthService {
     );
 
     if (usable.length === 0) {
+      await this.recordAttempt(email, false, LoginFailureReason.NO_TENANT, meta, {
+        userId: user.id,
+      });
       throw new ForbiddenException('No active tenant membership');
     }
 
@@ -87,6 +105,16 @@ export class AuthService {
           m.tenant.slug === tenantCodeOrSlug,
       );
       if (!match) {
+        await this.recordAttempt(
+          email,
+          false,
+          LoginFailureReason.TENANT_MISMATCH,
+          meta,
+          {
+            userId: user.id,
+            tenantId: await this.resolveTenantId(tenantCodeOrSlug),
+          },
+        );
         throw new ForbiddenException(
           `No active membership for tenant "${tenantCodeOrSlug}"`,
         );
@@ -119,7 +147,7 @@ export class AuthService {
   async issueTenantSession(
     user: User,
     membership: TenantUser,
-    meta?: Pick<AuditActorOverride, 'ipAddress' | 'userAgent'>,
+    meta?: LoginMeta,
   ) {
     if (!membership.tenant) {
       const tenant = await this.tenantRepo.findOne({ where: { id: membership.tenantId } });
@@ -134,7 +162,7 @@ export class AuthService {
   async switchTenant(
     userId: string,
     tenantId: string,
-    meta?: Pick<AuditActorOverride, 'ipAddress' | 'userAgent'>,
+    meta?: LoginMeta,
   ) {
     const membership = await this.tenantUserRepo.findOne({
       where: {
@@ -220,7 +248,7 @@ export class AuthService {
   private async issueToken(
     user: User,
     membership: TenantUser,
-    meta?: Pick<AuditActorOverride, 'ipAddress' | 'userAgent'>,
+    meta?: LoginMeta,
   ) {
     const org = await this.resolveOrgContext(user.id);
 
@@ -275,6 +303,40 @@ export class AuthService {
       }),
     );
 
+    // Security telemetry: successful login + geo baseline (never throws).
+    await this.recordAttempt(user.email, true, LoginFailureReason.OK, meta, {
+      tenantId: membership.tenantId,
+      userId: user.id,
+    });
+
     return result;
+  }
+
+  private async recordAttempt(
+    email: string,
+    success: boolean,
+    reason: LoginFailureReason,
+    meta: LoginMeta | undefined,
+    ids: { tenantId?: string | null; userId?: string | null },
+  ): Promise<void> {
+    await this.loginAttempts.record({
+      tenantId: ids.tenantId ?? null,
+      userId: ids.userId ?? null,
+      email,
+      success,
+      reason,
+      ipAddress: meta?.ipAddress ?? null,
+      userAgent: meta?.userAgent ?? null,
+      country: meta?.country ?? null,
+      city: meta?.city ?? null,
+    });
+  }
+
+  private async resolveTenantId(codeOrSlug?: string): Promise<string | null> {
+    if (!codeOrSlug) return null;
+    const tenant = await this.tenantRepo.findOne({
+      where: [{ code: codeOrSlug }, { slug: codeOrSlug }],
+    });
+    return tenant?.id ?? null;
   }
 }

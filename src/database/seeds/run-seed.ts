@@ -7,6 +7,7 @@ import { seedScopes } from './scope.seeder';
 import { seedFeatures } from './feature.seeder';
 import { seedLogistics } from './logistics.seeder';
 import { seedPlans, seedDemoSubscriptions } from './billing.seeder';
+import { seedSecurityAlertRules } from './security.seeder';
 import { seedMasterDataDefaults } from '../../modules/master-data/master-data.seeder';
 import { Tenant } from '../../modules/tenant/entities/tenant.entity';
 
@@ -56,6 +57,7 @@ async function run() {
     }
 
     await seedLogistics(dataSource);
+    await seedSecurityAlertRules(dataSource);
   } finally {
     await dataSource.destroy();
   }

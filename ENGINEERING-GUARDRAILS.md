@@ -80,11 +80,24 @@ Thêm bảng/feature mới ⇒ cập nhật seeder tương ứng, đừng để 
 - Bulk: tối đa 100 operation/lần, mỗi operation có status riêng; sort chỉ nhận thuộc tính trong whitelist
   (`userName`, `displayName`, `externalId`, `id`, `meta.created`).
 
+### 1.9 Security telemetry (C6)
+- `AuthService` ghi **mọi** login attempt vào `security_login_attempts` (success + lý do thất bại).
+  `LoginAttemptService.record()` tự catch lỗi — telemetry **không được** làm login fail.
+- Geo baseline: `x-country-code` chỉ đáng tin khi edge proxy strip bản client gửi lên.
+  Country lạ đầu tiên tạo `GEO_ANOMALY` và set `anomalous = true` trên attempt (detection đọc cờ này,
+  không suy đoán lại từ timestamp).
+- Rotate secret (`API_KEY` / `SCIM_TOKEN` / `WEBHOOK_SECRET`) và approve/revoke emergency access
+  phải có `@RequireStepUp('security.*')` + `StepUpGuard`; test chạy flow thật, không nới assertion.
+- Break-glass dual-control: approver ≠ requester, grant tự hết hạn; `list()` chuyển grant quá hạn
+  (`PENDING`/`APPROVED`) sang `EXPIRED`.
+- Alert rules mặc định seed cho `ABC` + `CAFE_MOC` (`src/database/seeds/security.seeder.ts`).
+  Thêm event type mới ⇒ cập nhật seeder, đừng để e2e tự tạo nền.
+
 ---
 
 ## 2. Definition of Done — verify trước khi báo "xong"
 
-- [ ] `npm run verify` → lint + build + unit + e2e isolated (baseline hiện tại: **44 suites / 199 tests PASS**)
+- [ ] `npm run verify` → lint + build + unit + e2e isolated (baseline hiện tại: **45 suites / 210 tests PASS**)
 - [ ] Sửa nhỏ thì chạy nhanh `npm run verify:fast` (lint + build + unit)
 - [ ] Muốn xem warning của lint: `npm run lint:check` (CI fail khi có **error**, warning không chặn)
 - [ ] Nếu chạm auth / guard / billing / seed: chạy lại với `NODE_ENV=test` (parity CI)
