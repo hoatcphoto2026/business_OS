@@ -6,6 +6,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { JwtPayload } from '../interfaces/jwt-payload.interface';
 import { User } from '../../users/entities/user.entity';
+import { resolveJwtConfig } from '../jwt.config';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -13,10 +14,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     configService: ConfigService,
     @InjectRepository(User) private readonly users: Repository<User>,
   ) {
+    const jwt = resolveJwtConfig(configService);
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: (() => { const s = configService.get<string>('JWT_SECRET'); if (process.env.NODE_ENV === 'production' && (!s || s === 'dev-secret-change-me')) throw new Error('JWT_SECRET must be set in production'); return s || 'dev-secret-change-me'; })(),
+      secretOrKey: jwt.verify.key,
+      algorithms: jwt.verify.algorithms,
     });
   }
 

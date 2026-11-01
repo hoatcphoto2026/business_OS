@@ -1,5 +1,5 @@
 import { DataSource } from 'typeorm';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 import { Tenant, TenantStatus, TenantPlan } from '../../modules/tenant/entities/tenant.entity';
 import { User } from '../../modules/users/entities/user.entity';
 import { TenantUser, MembershipStatus } from '../../modules/tenant/entities/tenant-user.entity';

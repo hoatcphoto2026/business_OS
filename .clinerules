@@ -17,6 +17,11 @@ Before ANY change: read `ENGINEERING-GUARDRAILS.md`, then run `git status --shor
 - **Seed contract**: after `npm run seed` on an EMPTY database, `ABC` and `CAFE_MOC` must have
   active tenant + membership + roles + plan **and an ACTIVE subscription**.
   New table/feature → update the matching seeder.
+- **Supply chain**: CI runs `npm run audit:gate`; unallowlisted critical/high fails the build.
+  Allowlist entries need owner + mitigation + expiry. `bcrypt` is replaced by `bcryptjs`.
+- **JWT**: production is RS256-first; HS256 is blocked unless `JWT_ALLOW_HS256_IN_PRODUCTION=true`.
+  Resolve config only via `src/modules/auth/jwt.config.ts`.
+- **Uploads**: every file endpoint uses `buildMulterOptions()` + the global multipart 413 middleware.
 
 ## Definition of done
 

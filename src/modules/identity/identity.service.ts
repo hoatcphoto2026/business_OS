@@ -9,7 +9,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { createHash, createHmac, createPublicKey, randomBytes, randomUUID, timingSafeEqual, verify as cryptoVerify } from 'crypto';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 import { IdentityProvider } from './entities/identity-provider.entity';
 import { IdentityMapping } from './entities/identity-mapping.entity';
 import { SSOSession } from './entities/sso-session.entity';

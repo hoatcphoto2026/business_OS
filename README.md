@@ -714,7 +714,7 @@ Demo subscription/plan baseline is restored by `npm run seed`
 `.github/workflows/ci.yml` runs on every push/PR:
 
 ```
-npm ci → npm run lint:check → npm run build → npm test -- --runInBand
+npm ci → npm run audit:gate → npm run lint:check → npm run build → npm test -- --runInBand
        → npm run migration:run → npm run seed
        → npm run test:e2e -- --runInBand   # FULL suite (52 suites / 270 tests)
 ```
@@ -729,7 +729,10 @@ npm ci → npm run lint:check → npm run build → npm test -- --runInBand
 | Rate limit login | `POST /api/v1/auth/login`: **10 request / phút / IP** |
 | Rate limit admin | `AdminRateLimitGuard`: `ADMIN_MUTATE_LIMIT` (mặc định 30 mutation/phút/admin) |
 | Body size | `BODY_LIMIT` (mặc định `1mb`) cho json + urlencoded |
-| Secret bắt buộc | `JWT_SECRET`, `BANKING_WEBHOOK_SECRET`, `PAYMENT_WEBHOOK_SECRET` ≥ 32 ký tự khi `NODE_ENV=production` (fail-closed) |
+| Upload limits | `UPLOAD_MAX_FILE_BYTES` / `UPLOAD_MAX_FILES` / `UPLOAD_MAX_FIELDS` / `UPLOAD_MAX_REQUEST_BYTES`; `multipartLimitMiddleware()` trả **413** trước khi multer buffer; mọi file endpoint dùng `buildMulterOptions()` (MIME allowlist) |
+| JWT algorithm | Production RS256-first (`JWT_PRIVATE_KEY`/`JWT_PUBLIC_KEY`); **HS256 bị chặn** trừ khi `JWT_ALLOW_HS256_IN_PRODUCTION=true` (có log cảnh báo). Logic tập trung ở `src/modules/auth/jwt.config.ts` |
+| Secret bắt buộc | `BANKING_WEBHOOK_SECRET`, `PAYMENT_WEBHOOK_SECRET` ≥ 32 ký tự khi `NODE_ENV=production`; `JWT_SECRET` ≥ 32 chỉ khi dùng HS256 (fail-closed) |
+| Supply chain | `npm run audit:gate` (CI) — fail nếu có critical/high chưa allowlist; allowlist có owner + mitigation + `expiresOn` (`security/audit-allowlist.json`). `bcrypt` → `bcryptjs` (loại bỏ `tar` critical) |
 | Prod guards | Từ chối boot nếu `SKIP_STEP_UP=true` hoặc `ALLOW_MOCK_PAYMENTS=true`; cảnh báo khi thiếu `CORS_ORIGIN` |
 | Graceful shutdown | `app.enableShutdownHooks()` (SIGTERM/SIGINT) |
 | CORS | `CORS_ORIGIN` danh sách phẩy; production mà unset ⇒ CORS tắt |

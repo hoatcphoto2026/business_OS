@@ -2,7 +2,7 @@
 
 > **Đọc file này trước khi sửa code.** Đây là "bộ nhớ dài hạn" của dự án:
 > các lỗi thật đã từng xảy ra, cách phòng tránh, và Definition of Done.
-> Cập nhật lần cuối: 2026-10-31 (sau đợt fix step-up / RBAC / billing seed / dọn repo).
+> Cập nhật lần cuối: 2026-11-01 (D6 executive dashboard + supply-chain/payload hardening).
 
 ---
 
@@ -166,6 +166,21 @@ Thêm bảng/feature mới ⇒ cập nhật seeder tương ứng, đừng để 
   `SYSTEM_RISK` (past-due + failed onboarding + failed job). Không lưu bảng alert riêng.
 - Date range `from`/`to` (ISO) áp cho widget/alerts; `from > to` hoặc sai format → 400.
 - Toàn bộ `/executive/*` vẫn qua `PlatformOperatorGuard` + `PLATFORM_ADMIN_EMAILS`; non-operator → 403.
+
+### 1.17 Supply-chain & payload hardening
+- **Audit gate**: `npm run audit:gate` (chạy trong CI sau `npm ci`) đọc `npm audit --omit=dev --json`
+  và fail nếu có advisory **critical/high** chưa nằm trong `security/audit-allowlist.json`.
+  Mỗi entry bắt buộc có `owner`, `mitigation`, `expiresOn`; hết hạn ⇒ gate fail để buộc review lại.
+  Không được thêm entry chỉ để "cho xanh" — phải kèm biện pháp giảm thiểu thật.
+- `bcrypt` (native, kéo `tar` critical + `@mapbox/node-pre-gyp`) đã thay bằng `bcryptjs`;
+  hash `$2b$` tương thích, seed/login không đổi hành vi.
+- **JWT**: production mặc định RS256 khi có `JWT_PRIVATE_KEY`/`JWT_PUBLIC_KEY`.
+  HS256 **bị chặn** ở production trừ khi `JWT_ALLOW_HS256_IN_PRODUCTION=true` (escape hatch tạm thời,
+  có log cảnh báo). Logic tập trung ở `src/modules/auth/jwt.config.ts` — không đọc `JWT_SECRET` rải rác.
+- **Upload**: không dùng `FileInterceptor` trần. Luôn `FileInterceptor('file', buildMulterOptions())`
+  (`src/common/uploads/upload.config.ts`) để có giới hạn fileSize/files/fields/parts + MIME allowlist;
+  `multipartLimitMiddleware()` trả 413 cho multipart vượt `UPLOAD_MAX_REQUEST_BYTES`. Không có upload
+  endpoint nào được phép bỏ qua hai lớp này.
 
 ---
 

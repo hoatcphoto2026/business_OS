@@ -10,7 +10,7 @@ import { AuditService } from '../../audit/audit.service';
 import { EventBus } from '../../event/event-bus.service';
 import { EventType } from '../../event/enums/event-type.enum';
 import { AuditAction } from '../../audit/enums/audit-action.enum';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 
 const ASSIGNABLE_ROLES = new Set([
   'owner', 'admin', 'manager', 'sales', 'cashier', 'warehouse', 'accountant', 'auditor', 'member',

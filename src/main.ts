@@ -5,6 +5,7 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
+import { multipartLimitMiddleware } from './common/uploads/multipart-limit.middleware';
 
 /**
  * Fail-fast production checks – runs BEFORE the Nest app connects to the DB,
@@ -13,16 +14,43 @@ import { AppModule } from './app.module';
 function assertProductionSafety(isProd: boolean, logger: Logger): void {
   if (!isProd) return;
 
-  const required = [
-    'JWT_SECRET',
-    'BANKING_WEBHOOK_SECRET',
-    'PAYMENT_WEBHOOK_SECRET',
-  ];
+  const required = ['BANKING_WEBHOOK_SECRET', 'PAYMENT_WEBHOOK_SECRET'];
   for (const key of required) {
     const value = process.env[key];
     if (!value || value.length < 32) {
       throw new Error(`${key} must be at least 32 characters in production`);
     }
+  }
+
+  // JWT: RS256 key pairs are the production default. HS256 stays blocked unless
+  // the deployment explicitly opts in (short, auditable key-rotation window).
+  const jwtAlgorithm = (process.env.JWT_ALGORITHM || '').toUpperCase();
+  const hasRs256Keys = Boolean(
+    process.env.JWT_PRIVATE_KEY && process.env.JWT_PUBLIC_KEY,
+  );
+  const usesRs256 =
+    jwtAlgorithm === 'RS256' || (!jwtAlgorithm && hasRs256Keys);
+
+  if (usesRs256) {
+    if (!hasRs256Keys) {
+      throw new Error(
+        'JWT_PRIVATE_KEY and JWT_PUBLIC_KEY are required when JWT_ALGORITHM=RS256',
+      );
+    }
+  } else {
+    if (process.env.JWT_ALLOW_HS256_IN_PRODUCTION !== 'true') {
+      throw new Error(
+        'HS256 is disabled in production – configure JWT_PRIVATE_KEY/JWT_PUBLIC_KEY (RS256) ' +
+          'or set JWT_ALLOW_HS256_IN_PRODUCTION=true explicitly',
+      );
+    }
+    const secret = process.env.JWT_SECRET;
+    if (!secret || secret === 'dev-secret-change-me' || secret.length < 32) {
+      throw new Error('JWT_SECRET must be at least 32 characters in production');
+    }
+    logger.warn(
+      'HS256 explicitly allowed in production (JWT_ALLOW_HS256_IN_PRODUCTION=true) – plan RS256 migration',
+    );
   }
 
   // Danger switches must never be enabled in production.
@@ -58,6 +86,7 @@ async function bootstrap() {
   const bodyLimit = process.env.BODY_LIMIT || '1mb';
   app.useBodyParser('json', { limit: bodyLimit });
   app.useBodyParser('urlencoded', { limit: bodyLimit, extended: true });
+  app.use(multipartLimitMiddleware());
 
 
   // Security headers (helmet). CSP is disabled outside production so the

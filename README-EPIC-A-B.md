@@ -698,3 +698,20 @@ instead of keeping a private `Map`:
   within the same process lifecycle, and labels are first-class (e.g. `http_requests_total{status,method}`,
   `usage_recorded_total{metric,tenant}`)
 
+---
+
+### Supply-chain & payload hardening (2026-11-01)
+
+- **Critical advisory removed**: `bcrypt` (native, pulled `tar@6` critical + `@mapbox/node-pre-gyp`)
+  replaced by `bcryptjs@3` — same `$2b$` hashes, so existing passwords keep working.
+- **`npm run audit:gate`** (also in CI after `npm ci`) fails on any critical/high advisory missing
+  from `security/audit-allowlist.json`. Each entry carries `owner`, `mitigation`, `expiresOn`;
+  expired entries fail the gate. Current state: **0 critical / 7 allowlisted high / 59 moderate**.
+- **JWT**: `src/modules/auth/jwt.config.ts` is the single resolver. Production is RS256-first
+  (`JWT_PRIVATE_KEY`/`JWT_PUBLIC_KEY`, PEM or base64); HS256 is refused unless
+  `JWT_ALLOW_HS256_IN_PRODUCTION=true` (logged warning). `main.ts` mirrors the check before boot.
+- **Uploads**: `buildMulterOptions()` enforces fileSize/files/fields/parts + MIME allowlist, and
+  `multipartLimitMiddleware()` returns **413** before multer buffers oversized multipart bodies.
+  No upload route exists today; future ones must use both.
+
+

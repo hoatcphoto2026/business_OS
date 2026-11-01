@@ -2,7 +2,7 @@ import { MetricsService } from '../../common/metrics/metrics.service';
 import { Injectable, Logger, ConflictException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 import { TenantOnboarding } from './entities/tenant-onboarding.entity';
 import { OnboardingStatus } from './enums/onboarding.enum';
 import { StartOnboardingDto } from './dto/start-onboarding.dto';

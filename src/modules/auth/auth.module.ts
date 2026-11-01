@@ -13,6 +13,7 @@ import { LoginHistory } from '../administration/entities/login-history.entity';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { resolveJwtConfig } from './jwt.config';
 import { AuditModule } from '../audit/audit.module';
 import { SecurityModule } from '../security/security.module';
 
@@ -31,12 +32,7 @@ import { SecurityModule } from '../security/security.module';
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        secret: (() => { const s = config.get<string>('JWT_SECRET'); if (process.env.NODE_ENV === 'production' && (!s || s === 'dev-secret-change-me')) throw new Error('JWT_SECRET must be set in production'); return s || 'dev-secret-change-me'; })(),
-        signOptions: {
-          expiresIn: config.get<string>('JWT_EXPIRES_IN', '8h'),
-        },
-      }),
+      useFactory: (config: ConfigService) => resolveJwtConfig(config).moduleOptions,
     }),
     AuditModule,
     SecurityModule,
