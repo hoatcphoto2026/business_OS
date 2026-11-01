@@ -2,7 +2,7 @@
 
 > **Đọc file này trước khi sửa code.** Đây là "bộ nhớ dài hạn" của dự án:
 > các lỗi thật đã từng xảy ra, cách phòng tránh, và Definition of Done.
-> Cập nhật lần cuối: 2026-11-01 (D6 executive dashboard + supply-chain/payload hardening).
+> Cập nhật lần cuối: 2026-11-01 (D6 executive dashboard, D7 forecast engine + supply-chain hardening).
 
 ---
 
@@ -182,11 +182,25 @@ Thêm bảng/feature mới ⇒ cập nhật seeder tương ứng, đừng để 
   `multipartLimitMiddleware()` trả 413 cho multipart vượt `UPLOAD_MAX_REQUEST_BYTES`. Không có upload
   endpoint nào được phép bỏ qua hai lớp này.
 
+### 1.18 Forecast engine (D7)
+- 3 bảng: `forecast_models` (unique `tenant, metric, method`), `forecast_runs` (mỗi lần chạy là 1
+  history entry), `forecast_results` (unique `run, metric, method, horizon`; FK → run CASCADE).
+- 5 metrics (`REVENUE | CUSTOMER_GROWTH | CHURN | USAGE | TICKET_VOLUME`) × 3 methods
+  (`MOVING_AVERAGE | TREND_PROJECTION | SEASONAL_ANALYSIS`) × 3 horizons (`30 | 90 | 365`) = 45 results/run.
+- Chuỗi lịch sử lấy **platform-wide** (operator-only) và neo theo **`CURRENT_DATE` của DB**, không theo
+  giờ Node — nếu không, timezone UTC+7 làm lệch 1 ngày và test horizon sẽ fail.
+- `node-postgres` parse cột `date` thành `Date` local-midnight ⇒ format bằng `getFullYear/getMonth/getDate`,
+  **không** dùng `toISOString()` (lệch ngày).
+- Mọi run ghi audit `entity_type = 'forecast_run'`, metrics `forecast_runs_total{status}`,
+  `forecast_results_total{metric}`, gauges `forecast_latest_value` / `forecast_confidence_pct`.
+- Chạy lại chỉ subset (metric/method/horizon) không được nhân bản model; `lastRunAt` cập nhật, tổng model giữ 15.
+- Seed contract: sau `npm run seed`, operator `ABC` có đủ 15 model ACTIVE.
+
 ---
 
 ## 2. Definition of Done — verify trước khi báo "xong"
 
-- [ ] `npm run verify` → lint + build + unit + e2e isolated (baseline hiện tại: **51 suites / 262 tests PASS**)
+- [ ] `npm run verify` → lint + build + unit + e2e isolated (baseline hiện tại: **53 suites / 280 tests PASS**)
 - [ ] Sửa nhỏ thì chạy nhanh `npm run verify:fast` (lint + build + unit)
 - [ ] Muốn xem warning của lint: `npm run lint:check` (CI fail khi có **error**, warning không chặn)
 - [ ] Nếu chạm auth / guard / billing / seed: chạy lại với `NODE_ENV=test` (parity CI)

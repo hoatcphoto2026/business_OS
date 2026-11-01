@@ -700,6 +700,52 @@ instead of keeping a private `Map`:
 
 ---
 
+### D7 Forecast Engine
+
+**Goal:** predict future platform metrics (revenue, customer growth, churn, usage, ticket volume)
+with three methods and three required horizons.
+
+**Entities:**
+
+| Table | Key fields | Notes |
+|---|---|---|
+| `forecast_models` | metric, method, parameters (`window`, `seasonLength`, `zScore`), status, version, last_run_at | unique `(tenant, metric, method)`; seeded 15 rows for ABC |
+| `forecast_runs` | status, metrics[], methods[], horizons[], lookback_days, data_points, results_count, requested_by, started/completed, error_message | one row per execution (history) |
+| `forecast_results` | run_id, metric, method, horizon_days, predicted/lower/upper, confidence_pct, points[], metadata | unique `(run, metric, method, horizon)`; FK → run CASCADE |
+
+**Methods:** moving average (iterative SMA over `window`), trend projection (OLS slope/intercept +
+R²), seasonal analysis (trend × day-of-week factors). Bounds use residual σ × z(1.96) × √(h/n);
+confidence is 30–95 based on history length, coefficient of variation and R².
+
+**Outputs:** `30`, `90`, `365` days per metric/method; `points` are sampled to ≤30 chart points and
+end exactly on the horizon. A full run stores **45 results** (5 × 3 × 3).
+
+**Data sources (platform-wide, operator-only):** `billing_invoices.amount_paid` (revenue),
+`tenants.created_at` (growth), `subscriptions.cancelled_at` (churn), `usage_records.quantity` (usage),
+`support_tickets.created_at` (ticket volume), zero-filled over `lookbackDays` (default 90) and anchored
+to the **database clock** (`CURRENT_DATE`).
+
+**APIs (JWT + `admin.access` + platform operator):**
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/forecast` | latest COMPLETED run: `run`, `results`, `summary[metric][method][horizon]`, `models`; filters `metric`, `method`, `horizon`, `runId` |
+| POST | `/forecast/run` | body `metrics[]`, `methods[]`, `horizons[]`, `lookbackDays`; defaults = all |
+| GET | `/forecast/history` | runs newest-first with `status` / `metric` / `method` filters + limit/offset |
+| GET | `/forecast/models` | 15 seeded models with parameters/status/lastRunAt |
+| GET | `/forecast/metrics` | Prometheus text |
+
+**Storage & instrumentation:** results stored under the operator tenant; counters
+`forecast_runs_total{status}`, `forecast_results_total{metric}`; gauges `forecast_latest_value`,
+`forecast_confidence_pct`, `forecast_results_stored`; audit `entity_type = forecast_run`.
+
+**Tests:** `forecast-engine` (10) — operator gate, seeded model matrix, 45-result run,
+bounded/confident points, rising-revenue trend + horizon-anchored dates, DTO validation (metric,
+method, horizon, lookback), history filters, idempotent model upsert on subset re-run, Prometheus,
+operator-tenant storage + audit trail.
+
+---
+
 ### Supply-chain & payload hardening (2026-11-01)
 
 - **Critical advisory removed**: `bcrypt` (native, pulled `tar@6` critical + `@mapbox/node-pre-gyp`)

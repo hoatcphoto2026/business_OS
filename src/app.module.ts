@@ -107,6 +107,10 @@ import { GrowthModule } from './modules/growth/growth.module';
 import { GrowthSnapshot } from './modules/growth/entities/growth-snapshot.entity';
 import { GrowthExperiment } from './modules/growth/entities/growth-experiment.entity';
 import { GrowthSegment } from './modules/growth/entities/growth-segment.entity';
+import { ForecastModule } from './modules/forecast/forecast.module';
+import { ForecastModel } from './modules/forecast/entities/forecast-model.entity';
+import { ForecastRun } from './modules/forecast/entities/forecast-run.entity';
+import { ForecastResult } from './modules/forecast/entities/forecast-result.entity';
 import { FeatureUsage } from './modules/product-analytics/entities/feature-usage.entity';
 import { FeatureAdoption } from './modules/product-analytics/entities/feature-adoption.entity';
 import { FeatureTrend } from './modules/product-analytics/entities/feature-trend.entity';
@@ -265,6 +269,9 @@ import { PaymentTransaction } from './modules/billing/entities/payment-transacti
           GrowthSnapshot,
           GrowthExperiment,
           GrowthSegment,
+          ForecastModel,
+          ForecastRun,
+          ForecastResult,
           UserCompany,
           UserBranch,
           UserDepartment,
@@ -395,6 +402,7 @@ import { PaymentTransaction } from './modules/billing/entities/payment-transacti
     CustomerHealthModule,
     ProductAnalyticsModule,
     GrowthModule,
+    ForecastModule,
     ...(process.env.NODE_ENV !== 'production' ? [DemoModule] : []),
   ],
   providers: [
