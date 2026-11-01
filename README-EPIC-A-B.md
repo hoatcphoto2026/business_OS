@@ -3,7 +3,7 @@
 **Autonomous Enterprise SaaS Platform**
 
 Archive: `business-os-backend-epic-b-complete.tar.gz`  
-Full e2e: **42/42 suites, 177/177 tests PASS** (verified on a fresh database, 2026-10-31)
+Full e2e: **43/43 suites, 186/186 tests PASS** (verified on a fresh database, 2026-10-31)
 
 ---
 
@@ -109,7 +109,7 @@ npm run seed
 npm run test:e2e
 ```
 
-Expected: **42 suites passed, 177 tests passed**.
+Expected: **43 suites passed, 186 tests passed**.
 
 ---
 
@@ -195,4 +195,38 @@ Password for all: `Password123!`
 - SAML: discovery metadata only (assertion consumer not enabled)
 
 **Tests:** `audit-compliance` (7), `enterprise-org` (3), `enterprise-identity` (5).
+
+
+### C4 SCIM 2.0 Provisioning
+
+**Entities:** `scim_endpoints` (token hash, enabled, default role, organization code, last used),
+`scim_mappings` (resource type, sync target, external id, internal user/org/department ids, role code,
+members, active/deleted), `scim_provisioning_logs` (operation, status, attempts, resource id, payload,
+error, trace id, completed/dead-letter timestamps).
+
+**SCIM APIs (RFC 7644):**
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/scim/v2/ServiceProviderConfig` · `/ResourceTypes` · `/Schemas` | discovery |
+| GET/POST | `/scim/v2/Users` | list (`userName`/`externalId`/`id` `eq` filter, startIndex/count) · create |
+| GET/PUT/PATCH/DELETE | `/scim/v2/Users/:id` | read · replace · PatchOp (active/name/userName/roles) · deprovision |
+| GET/POST | `/scim/v2/Groups` | list · create |
+| GET/PUT/PATCH/DELETE | `/scim/v2/Groups/:id` | read · replace · add/remove members · deactivate |
+
+Groups use the `urn:ietf:params:scim:schemas:extension:businessos:2.0:Group` extension:
+`syncTarget = GROUP | DEPARTMENT | ORGANIZATION` (+ `organizationCode`).
+
+**Admin APIs (JWT + `admin.access`):** `POST/GET/PATCH /scim/endpoints`,
+`POST /scim/endpoints/:id/rotate-token` (plaintext token returned once),
+`GET /scim/provisioning-logs` (`status` filter), `GET /scim/provisioning-logs/:id`,
+`POST /scim/provisioning-logs/:id/retry`, `GET /scim/metrics`.
+
+**Capabilities:** create/update/suspend/delete user, group + department + organization sync,
+automatic role mapping (SCIM `roles` → tenant RBAC role, fallback to the endpoint default role),
+provisioning status tracking, retry (max 3 attempts), dead-letter queue (`status = DEAD`,
+`dead_letter_at`), audit logging, Prometheus counters, OpenTelemetry span attributes.
+
+**Tests:** `scim` (9) — token auth/disabled endpoint, discovery, user CRUD + filter + suspend/reactivate,
+role mapping, org/department/group sync, plain group sync, status + retry + DLQ, metrics, tenant isolation.
 

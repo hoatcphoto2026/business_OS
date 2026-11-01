@@ -69,6 +69,10 @@ import { AutomationWorkflowInstance } from './modules/automation-workflow/entiti
 import { AutomationWorkflowExecution } from './modules/automation-workflow/entities/automation-workflow-execution.entity';
 import { AutomationWorkflowModule } from './modules/automation-workflow/automation-workflow.module';
 import { IdentityModule } from './modules/identity/identity.module';
+import { ScimModule } from './modules/scim/scim.module';
+import { ScimEndpoint } from './modules/scim/entities/scim-endpoint.entity';
+import { ScimMapping } from './modules/scim/entities/scim-mapping.entity';
+import { ScimProvisioningLog } from './modules/scim/entities/scim-provisioning-log.entity';
 import { IdentityProvider } from './modules/identity/entities/identity-provider.entity';
 import { IdentityMapping } from './modules/identity/entities/identity-mapping.entity';
 import { SSOSession } from './modules/identity/entities/sso-session.entity';
@@ -192,6 +196,9 @@ import { PaymentTransaction } from './modules/billing/entities/payment-transacti
           IdentityProvider,
           IdentityMapping,
           SSOSession,
+          ScimEndpoint,
+          ScimMapping,
+          ScimProvisioningLog,
           UserCompany,
           UserBranch,
           UserDepartment,
@@ -313,6 +320,7 @@ import { PaymentTransaction } from './modules/billing/entities/payment-transacti
     AutoNotificationModule,
     AutomationWorkflowModule,
     IdentityModule,
+    ScimModule,
     ...(process.env.NODE_ENV !== 'production' ? [DemoModule] : []),
   ],
   providers: [

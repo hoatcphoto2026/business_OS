@@ -28,4 +28,10 @@ export class ScimProvisioningLog extends BaseTenantEntity {
 
   @Column({ name: 'trace_id', type: 'varchar', length: 128, nullable: true })
   traceId!: string | null;
+
+  @Column({ name: 'completed_at', type: 'timestamptz', nullable: true })
+  completedAt!: Date | null;
+
+  @Column({ name: 'dead_letter_at', type: 'timestamptz', nullable: true })
+  deadLetterAt!: Date | null;
 }

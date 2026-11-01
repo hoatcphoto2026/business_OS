@@ -64,11 +64,22 @@ Thêm bảng/feature mới ⇒ cập nhật seeder tương ứng, đừng để 
   từ chối boot khi `SKIP_STEP_UP=true` hoặc `ALLOW_MOCK_PAYMENTS=true`.
 - Chạy sau proxy/LB ⇒ phải set `TRUST_PROXY` để rate limit dùng IP thật.
 
+### 1.8 SCIM provisioning (C4)
+- SCIM requests carry **no JWT/ALS**: the tenant always comes from the bearer-token endpoint
+  (`request.scimEndpoint.tenantId`), never from the body/query.
+- Endpoint tokens are stored **hashed (sha256)**; the plaintext token is returned only once
+  (`POST /scim/endpoints`, rotate via `/scim/endpoints/:id/rotate-token`).
+- Every provisioning mutation writes `scim_provisioning_logs` (operation, status, attempts,
+  trace id, resource id). Failures retry up to `SCIM_MAX_ATTEMPTS` then become **DEAD** (DLQ).
+- Mapping is idempotent by `(endpoint_id, resource_type, external_id)`; SCIM resource `id`
+  is the mapping id, never the internal user/team id.
+- Tenant isolation: every query filters by `endpoint.tenantId` **and** `endpointId`.
+
 ---
 
 ## 2. Definition of Done — verify trước khi báo "xong"
 
-- [ ] `npm run verify` → lint + build + unit + e2e isolated (baseline hiện tại: **42 suites / 177 tests PASS**)
+- [ ] `npm run verify` → lint + build + unit + e2e isolated (baseline hiện tại: **43 suites / 186 tests PASS**)
 - [ ] Sửa nhỏ thì chạy nhanh `npm run verify:fast` (lint + build + unit)
 - [ ] Muốn xem warning của lint: `npm run lint:check` (CI fail khi có **error**, warning không chặn)
 - [ ] Nếu chạm auth / guard / billing / seed: chạy lại với `NODE_ENV=test` (parity CI)

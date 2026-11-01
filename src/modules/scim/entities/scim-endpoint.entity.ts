@@ -18,4 +18,7 @@ export class ScimEndpoint extends BaseTenantEntity {
 
   @Column({ name: 'organization_code', type: 'varchar', length: 50, default: 'scim' })
   organizationCode!: string;
+
+  @Column({ name: 'last_used_at', type: 'timestamptz', nullable: true })
+  lastUsedAt!: Date | null;
 }

@@ -25,6 +25,10 @@ export class ScimAuthGuard implements CanActivate {
       scimError(401, 'Bearer token is invalid');
     }
     request.scimEndpoint = endpoint;
+    // Track usage without slowing the request path.
+    void this.endpoints
+      .update({ id: endpoint.id }, { lastUsedAt: new Date() })
+      .catch(() => undefined);
     return true;
   }
 }
