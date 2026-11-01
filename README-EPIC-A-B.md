@@ -534,6 +534,58 @@ daily snapshots + history, `/health/*` aliases, Prometheus gauges + audit.
 
 ---
 
+### D4 Product Analytics
+
+**Entities:** `feature_usage` (raw usage per **customer** tenant: feature, actor, organization,
+department, quantity, user count, source `TRACKED|DERIVED|SEED`, dedupe key, occurred at),
+`feature_adoption` (operator-scoped breakdown per feature × dimension × key × period),
+`feature_trends` (daily usage, active tenants/users, growth %, retention %).
+
+**Features (11):** `SALES_ORDERS`, `INVOICES`, `CUSTOMERS`, `PRODUCTS`, `SUPPORT`, `REPORTS`,
+`COMPLIANCE`, `SECURITY`, `SCIM`, `API_KEYS`, `AUTOMATION`.
+
+**Metrics & reports:**
+
+| Item | Definition |
+|---|---|
+| Most / least used | features ranked by usage in the window (top 5 / bottom 5, zero-usage included) |
+| Feature activation | active tenants using the feature / active tenants (%) |
+| Feature retention | tenants using the feature in the current **and** previous window / previous window tenants (%) |
+| Feature growth | usage in the window vs the previous window (%) |
+| Adoption | usage share per dimension key within each feature (%) |
+| Usage trend | daily usage, active tenants/users, day-over-day growth and retention |
+
+**Dimensions:** `TENANT`, `ORGANIZATION`, `DEPARTMENT`, `PLAN` (organization/department come from the
+usage row; untagged usage is reported as `UNASSIGNED`).
+
+**APIs (JWT + `admin.access` + platform operator, `/analytics` prefix):**
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/analytics/features/catalog` | 11 feature definitions |
+| GET | `/analytics/features?days=` | ranking: most/least used, activation, retention, growth |
+| POST | `/analytics/features/track` | explicit usage event (optionally org/department tagged) |
+| POST | `/analytics/features/collect?days=` | derive usage from existing business tables (idempotent) |
+| GET | `/analytics/features/metrics` | Prometheus gauges |
+| GET | `/analytics/adoption?dimension=&period=` | adoption breakdown, persisted per period |
+| GET | `/analytics/trends?days=&feature=` | daily trend series + persistence |
+
+> Existing tenant analytics (`/analytics/kpis`, `/dashboard`, `/reports/revenue`, `/forecast/revenue`,
+> `/metrics`) are untouched; D4 only adds new paths under the same prefix.
+
+**Collection:** `collect` aggregates 11 business tables into daily usage rows keyed
+`FEATURE:tenant:day` with `ON CONFLICT DO NOTHING`, so repeated runs never double-count. The seeder
+inserts one baseline `SEED` row per feature for ABC. Gauges: `product_analytics_features`,
+`product_analytics_active_features`, `product_analytics_usage_30d`,
+`product_analytics_avg_activation_pct`; counters `product_feature_usage_tracked_total{feature}`,
+`product_analytics_collected_total`, `product_analytics_trends_generated_total`; audit `product_analytics`.
+
+**Tests:** `product-analytics` (8) — operator gate, catalog, derive + ranking, tracked usage with
+org/department dimensions, adoption by tenant/plan, adoption by organization/department + invalid period,
+daily trends with growth/retention, Prometheus + audit + operator-scoped persistence.
+
+---
+
 ### Shared Prometheus registry (observability)
 
 Every module now increments **one** `prom-client` registry (`src/common/metrics/metrics.service.ts`)

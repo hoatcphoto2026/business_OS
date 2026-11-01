@@ -102,6 +102,10 @@ import { CustomerHealthModule } from './modules/customer-health/customer-health.
 import { CustomerHealthScore } from './modules/customer-health/entities/customer-health-score.entity';
 import { HealthSignal } from './modules/customer-health/entities/health-signal.entity';
 import { HealthSnapshot } from './modules/customer-health/entities/health-snapshot.entity';
+import { ProductAnalyticsModule } from './modules/product-analytics/product-analytics.module';
+import { FeatureUsage } from './modules/product-analytics/entities/feature-usage.entity';
+import { FeatureAdoption } from './modules/product-analytics/entities/feature-adoption.entity';
+import { FeatureTrend } from './modules/product-analytics/entities/feature-trend.entity';
 import { IdentityProvider } from './modules/identity/entities/identity-provider.entity';
 import { IdentityMapping } from './modules/identity/entities/identity-mapping.entity';
 import { SSOSession } from './modules/identity/entities/sso-session.entity';
@@ -251,6 +255,9 @@ import { PaymentTransaction } from './modules/billing/entities/payment-transacti
           CustomerHealthScore,
           HealthSignal,
           HealthSnapshot,
+          FeatureUsage,
+          FeatureAdoption,
+          FeatureTrend,
           UserCompany,
           UserBranch,
           UserDepartment,
@@ -379,6 +386,7 @@ import { PaymentTransaction } from './modules/billing/entities/payment-transacti
     ExecutiveModule,
     RevenueModule,
     CustomerHealthModule,
+    ProductAnalyticsModule,
     ...(process.env.NODE_ENV !== 'production' ? [DemoModule] : []),
   ],
   providers: [

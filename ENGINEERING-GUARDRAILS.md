@@ -132,11 +132,23 @@ Thêm bảng/feature mới ⇒ cập nhật seeder tương ứng, đừng để 
 - `health_snapshots` unique `(tenant, target_tenant_id, snapshot_date)`; chạy lại trong ngày không nhân đôi điểm.
 - Audit snapshot phải dùng `entity_id` thật (AuditService bỏ qua khi id null).
 
+### 1.14 Product analytics (D4)
+- Feature usage lưu theo **tenant khách hàng** (`feature_usage`); adoption/trend lưu dưới tenant operator.
+  Endpoint `/analytics/features*` là operator-only, chia sẻ prefix `/analytics` với analytics tenant nhưng
+  chỉ thêm path mới (`features`, `adoption`, `trends`) — không đè route cũ.
+- `collect` derive usage từ bảng nghiệp vụ (sales_orders, invoices, customers, products, support_tickets,
+  report_runs, compliance_evidence, security_events, scim_provisioning_logs, api_keys, scheduled_jobs)
+  với `dedupe_key = FEATURE:tenant:day` + `ON CONFLICT DO NOTHING` ⇒ chạy lại không nhân đôi.
+- Adoption dimensions: TENANT / ORGANIZATION / DEPARTMENT / PLAN; ORG/DEPT lấy từ cột trên usage row
+  (tracked event nhận `organizationId`/`departmentId`), null ⇒ `UNASSIGNED`.
+- `feature_trends` unique `(tenant, feature_key, period_date)`; `feature_adoption` unique
+  `(tenant, feature_key, dimension, dimension_key, period)`. Audit `collect` cần `entity_id` thật.
+
 ---
 
 ## 2. Definition of Done — verify trước khi báo "xong"
 
-- [ ] `npm run verify` → lint + build + unit + e2e isolated (baseline hiện tại: **49 suites / 245 tests PASS**)
+- [ ] `npm run verify` → lint + build + unit + e2e isolated (baseline hiện tại: **50 suites / 253 tests PASS**)
 - [ ] Sửa nhỏ thì chạy nhanh `npm run verify:fast` (lint + build + unit)
 - [ ] Muốn xem warning của lint: `npm run lint:check` (CI fail khi có **error**, warning không chặn)
 - [ ] Nếu chạm auth / guard / billing / seed: chạy lại với `NODE_ENV=test` (parity CI)
