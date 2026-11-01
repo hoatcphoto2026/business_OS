@@ -238,6 +238,53 @@ tenant isolation.
 
 ---
 
+### C5 Compliance Center
+
+**Entities:** `compliance_evidence` (code, title, category, source, status, collected / valid-until,
+sha256 hash, JSON payload), `compliance_access_reviews` (name, scope, status, period, reviewer,
+`findings` jsonb, reviewed/flagged counts), `compliance_risks` (title, category, severity, status,
+likelihood × impact score, owner, due date, mitigation), `compliance_snapshots` (evidence/access/risk/
+retention/security + overall scores, `metrics` jsonb).
+
+**APIs (JWT + `admin.access`):**
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/compliance/dashboard` | live scores + evidence/risk/review/security counts |
+| POST/GET | `/compliance/evidence` | register manual evidence (sha256) · list (category/status) |
+| POST | `/compliance/evidence/collect` | auto-collect audit/access/security/operations evidence |
+| GET | `/compliance/evidence/export?format=csv\|excel\|pdf` | evidence export |
+| GET | `/compliance/evidence/:id` · POST `…/verify` | read · mark verified |
+| POST/GET | `/compliance/access-reviews` | start review (membership + role snapshot) · list |
+| GET | `/compliance/access-reviews/:id` · POST `…/complete` | findings · sign-off |
+| GET | `/compliance/permission-review` | role → permission matrix + risky assignments |
+| POST/GET/PATCH | `/compliance/risks` | create/list/update (status, severity, likelihood, impact) |
+| GET | `/compliance/reports/risks` · `/retention` · `/security` | risk, retention, security reports |
+| POST/GET | `/compliance/snapshots` | generate · list compliance snapshots |
+| GET | `/compliance/analytics` | score trend + evidence/risk/review breakdowns |
+| GET | `/compliance/metrics` | Prometheus text |
+
+**Capabilities:** evidence collection (platform-sourced via audit/access/SSO/SCIM/operations queries,
+or manual with a deterministic sha256), evidence export (CSV/Excel/PDF), access review with flags
+(`PRIVILEGED_ROLE`, `INACTIVE_MEMBERSHIP`, `NEVER_LOGGED_IN`, `MULTIPLE_ROLES`), permission review with
+risky-permission mapping, risk assessment + mitigation workflow, retention report (audit retention
+policies + aged audit/login/SSO/SCIM rows), security report (SSO, SCIM, step-up, access-monitoring
+checks), compliance dashboard, snapshots + analytics, audit logging for every mutation, and Prometheus
+counters (`compliance_evidence_collected_total{category}`, `compliance_exports_total{format}`,
+`compliance_access_reviews_started_total`, `compliance_access_reviews_completed_total`,
+`compliance_risks_created_total{severity}`, `compliance_snapshots_generated_total`).
+
+**Scoring:** evidence = verified/total; access = 100 − flagged/reviewed (50 when no review exists);
+risk = 100 − 15·critical − 10·high − 5·medium (open risks); retention = 100 when no aged records, else 50;
+security = 25 points each for SSO configured, SCIM configured, step-up used, access monitoring;
+overall = mean of the five scores.
+
+**Tests:** `compliance` (10) — authz, evidence collect/create/hash/verify/duplicate, CSV/Excel/PDF export,
+access review flags + completion, permission matrix, risk scoring/filter/mitigation + report,
+retention report, security report + Prometheus metrics, snapshot/dashboard/analytics, tenant isolation.
+
+---
+
 ### Shared Prometheus registry (observability)
 
 Every module now increments **one** `prom-client` registry (`src/common/metrics/metrics.service.ts`)

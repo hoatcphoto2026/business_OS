@@ -84,7 +84,7 @@ Thêm bảng/feature mới ⇒ cập nhật seeder tương ứng, đừng để 
 
 ## 2. Definition of Done — verify trước khi báo "xong"
 
-- [ ] `npm run verify` → lint + build + unit + e2e isolated (baseline hiện tại: **43 suites / 189 tests PASS**)
+- [ ] `npm run verify` → lint + build + unit + e2e isolated (baseline hiện tại: **44 suites / 199 tests PASS**)
 - [ ] Sửa nhỏ thì chạy nhanh `npm run verify:fast` (lint + build + unit)
 - [ ] Muốn xem warning của lint: `npm run lint:check` (CI fail khi có **error**, warning không chặn)
 - [ ] Nếu chạm auth / guard / billing / seed: chạy lại với `NODE_ENV=test` (parity CI)

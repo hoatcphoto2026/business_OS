@@ -74,6 +74,11 @@ import { ScimModule } from './modules/scim/scim.module';
 import { ScimEndpoint } from './modules/scim/entities/scim-endpoint.entity';
 import { ScimMapping } from './modules/scim/entities/scim-mapping.entity';
 import { ScimProvisioningLog } from './modules/scim/entities/scim-provisioning-log.entity';
+import { ComplianceModule } from './modules/compliance/compliance.module';
+import { EvidenceRecord } from './modules/compliance/entities/evidence-record.entity';
+import { AccessReview } from './modules/compliance/entities/access-review.entity';
+import { RiskAssessment } from './modules/compliance/entities/risk-assessment.entity';
+import { ComplianceSnapshot } from './modules/compliance/entities/compliance-snapshot.entity';
 import { IdentityProvider } from './modules/identity/entities/identity-provider.entity';
 import { IdentityMapping } from './modules/identity/entities/identity-mapping.entity';
 import { SSOSession } from './modules/identity/entities/sso-session.entity';
@@ -201,6 +206,10 @@ import { PaymentTransaction } from './modules/billing/entities/payment-transacti
           ScimEndpoint,
           ScimMapping,
           ScimProvisioningLog,
+          EvidenceRecord,
+          AccessReview,
+          RiskAssessment,
+          ComplianceSnapshot,
           UserCompany,
           UserBranch,
           UserDepartment,
@@ -323,6 +332,7 @@ import { PaymentTransaction } from './modules/billing/entities/payment-transacti
     AutomationWorkflowModule,
     IdentityModule,
     ScimModule,
+    ComplianceModule,
     ...(process.env.NODE_ENV !== 'production' ? [DemoModule] : []),
   ],
   providers: [

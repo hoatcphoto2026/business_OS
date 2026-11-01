@@ -20,7 +20,7 @@ Before ANY change: read `ENGINEERING-GUARDRAILS.md`, then run `git status --shor
 
 ## Definition of done
 
-1. `npm run verify` — lint + build + unit + e2e isolated (baseline: **43 suites / 189 tests**)
+1. `npm run verify` — lint + build + unit + e2e isolated (baseline: **44 suites / 199 tests**)
 2. Touched auth/guard/billing/seed → also run with `NODE_ENV=test`
 3. Login smoke: `admin@abctrading.vn` / `Password123!` / tenant `ABC`
 4. Report the **actual numbers** of the run you just did (never copy old ones)
