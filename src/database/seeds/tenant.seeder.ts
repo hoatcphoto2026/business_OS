@@ -78,6 +78,7 @@ export async function seedTenants(dataSource: DataSource): Promise<void> {
           timezone: 'Asia/Ho_Chi_Minh',
           currency: 'VND',
           language: 'vi',
+          country: 'VN',
           dateFormat: 'dd/MM/yyyy',
           businessMode: true,
           accountingMode: false,
@@ -87,6 +88,12 @@ export async function seedTenants(dataSource: DataSource): Promise<void> {
     } else if (t.status !== TenantStatus.ACTIVE && t.status !== TenantStatus.TRIAL) {
       // Reset status so login works after previous test runs
       t.status = TenantStatus.ACTIVE;
+      t = await tenantRepo.save(t);
+    }
+
+    // Idempotent backfill for databases seeded before `country` existed.
+    if (!t.settings?.country) {
+      t.settings = { ...(t.settings ?? {}), country: 'VN' };
       t = await tenantRepo.save(t);
     }
     return t;

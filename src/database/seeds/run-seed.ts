@@ -10,6 +10,7 @@ import { seedPlans, seedDemoSubscriptions } from './billing.seeder';
 import { seedSecurityAlertRules } from './security.seeder';
 import { seedReportSchedules } from './reporting.seeder';
 import { seedExecutiveMetrics } from './executive.seeder';
+import { seedRevenueSnapshot } from './revenue.seeder';
 import { seedMasterDataDefaults } from '../../modules/master-data/master-data.seeder';
 import { Tenant } from '../../modules/tenant/entities/tenant.entity';
 
@@ -62,6 +63,7 @@ async function run() {
     await seedSecurityAlertRules(dataSource);
     await seedReportSchedules(dataSource);
     await seedExecutiveMetrics(dataSource);
+    await seedRevenueSnapshot(dataSource);
   } finally {
     await dataSource.destroy();
   }

@@ -159,6 +159,13 @@ export class BillingService {
 
     let sub = await this.getCurrentSubscription();
     const now = new Date();
+    const previous = sub
+      ? {
+          planCode: sub.plan?.code ?? null,
+          billingCycle: sub.billingCycle,
+          status: sub.status,
+        }
+      : null;
 
     if (!sub) {
       // Create new as ACTIVE (or TRIAL if FREE)
@@ -223,6 +230,7 @@ export class BillingService {
       sub.id,
       AuditAction.UPDATE,
       {
+        oldData: previous,
         newData: { planCode: plan.code, billingCycle: dto.billingCycle, status: sub.status },
       },
     );

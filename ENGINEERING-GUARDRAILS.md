@@ -114,11 +114,21 @@ Thêm bảng/feature mới ⇒ cập nhật seeder tương ứng, đừng để 
 - Cron daily/monthly và `POST /executive/snapshots` dùng chung `generateSnapshot()`; gauges Prometheus
   (`executive_mrr`, `executive_arr`, `executive_*_rate_pct`, …) set từ cùng summary.
 
+### 1.12 Revenue intelligence (D2)
+- Analytics doanh thu là **platform-wide** → dùng chung operator allowlist với D1
+  (`PLATFORM_ADMIN_EMAILS`); snapshot/metric cache lưu dưới tenant operator.
+- Expansion/contraction + upgrade/downgrade trends đọc `audit_logs` entity `Subscription`
+  (`old_data.planCode` + `new_data.planCode`). `BillingService.changePlan` **phải** giữ `oldData`;
+  bỏ đi là mất khả năng tính expansion/contraction.
+- `Revenue By Country` dùng `tenants.settings.country` (seed `VN`), fallback `UNKNOWN`.
+- Snapshot refresh theo `(tenant, snapshot_date, period)`; segment unique
+  `(tenant, dimension, segment_key, period)`; forecast unique `(tenant, horizon, as_of)`.
+
 ---
 
 ## 2. Definition of Done — verify trước khi báo "xong"
 
-- [ ] `npm run verify` → lint + build + unit + e2e isolated (baseline hiện tại: **47 suites / 229 tests PASS**)
+- [ ] `npm run verify` → lint + build + unit + e2e isolated (baseline hiện tại: **48 suites / 237 tests PASS**)
 - [ ] Sửa nhỏ thì chạy nhanh `npm run verify:fast` (lint + build + unit)
 - [ ] Muốn xem warning của lint: `npm run lint:check` (CI fail khi có **error**, warning không chặn)
 - [ ] Nếu chạm auth / guard / billing / seed: chạy lại với `NODE_ENV=test` (parity CI)

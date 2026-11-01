@@ -29,6 +29,10 @@ export class TenantSettingsDto {
 
   @IsString()
   @IsOptional()
+  country?: string; // ISO 3166-1 alpha-2 (e.g. VN) – used by revenue-by-country
+
+  @IsString()
+  @IsOptional()
   dateFormat?: string; // dd/MM/yyyy
 
   @IsBoolean()

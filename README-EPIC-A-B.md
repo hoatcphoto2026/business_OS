@@ -435,6 +435,54 @@ dashboard trends, snapshot list + Prometheus gauges, cached values + audit + ope
 
 ---
 
+### D2 Revenue Intelligence
+
+**Entities:** `revenue_snapshots` (MRR/ARR, expansion/contraction/net-new, paid revenue, plan/tenant/
+country breakdowns, unique per day+period), `revenue_segments` (dimension `PLAN|TENANT|COUNTRY`,
+segment key/label, MRR/ARR/share, period `YYYY-MM`), `revenue_forecasts` (horizon, as-of,
+predicted revenue, bounds, confidence, method, inputs).
+
+**Metrics & reports:**
+
+| Item | Formula / source |
+|---|---|
+| `MRR` / `ARR` | active subscriptions normalised monthly; ARR = MRR × 12 |
+| Expansion revenue | Σ positive plan-price deltas from `audit_logs` (`Subscription` UPDATE, old vs new plan) in the last 30 days |
+| Contraction revenue | Σ negative plan-price deltas in the same window |
+| Revenue by plan | active subscriptions grouped by plan (tenants + MRR + share) |
+| Revenue by tenant | active subscriptions grouped by tenant (top customers by MRR) |
+| Revenue by country | grouped by `tenants.settings.country` (fallback `UNKNOWN`) |
+| Revenue trend | paid `billing_invoices` by month (revenue + invoice count) |
+| Upgrade / downgrade trend | monthly counts + expansion/contraction from plan-change audit rows |
+| Next month / quarter / annual forecast | MRR × (1 + growth) × 1 / 3 / 12, bounds ±10/15/20 %, confidence from history depth |
+
+**APIs (JWT + `admin.access` + platform operator):**
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/revenue/dashboard` | summary, segments, top customers/plans, forecast, trends |
+| GET | `/revenue/top-customers?limit=` | customers ranked by MRR + share |
+| GET | `/revenue/forecast?horizon=` | `NEXT_MONTH` / `QUARTER` / `ANNUAL` |
+| GET | `/revenue/trends?months=` | revenue, MRR history and upgrade/downgrade series |
+| GET | `/revenue/segments?dimension=&period=` | live or persisted segments |
+| POST/GET | `/revenue/snapshots` | generate (daily/monthly) · list |
+| GET | `/revenue/metrics` | Prometheus gauges (`revenue_mrr`, `revenue_expansion`, `revenue_forecast_*`) |
+
+**Scheduling & storage:** `RevenueSnapshotJob` runs daily 03:00 and monthly (1st, 04:00); snapshots are
+idempotent per `(tenant, snapshot_date, period)`, segments per `(tenant, dimension, key, period)`,
+forecasts per `(tenant, horizon, as_of)`. Every snapshot writes `audit_logs`
+(`entity_type = revenue_snapshot`) and increments `revenue_snapshots_total{period}`.
+
+**Supporting changes:** `BillingService.changePlan` now records `oldData` (previous plan/cycle/status) so
+expansion/contraction can be derived; `TenantSettingsDto` + tenant seeder persist `settings.country`
+(`VN` for the demo tenants) for revenue-by-country.
+
+**Tests:** `revenue-intelligence` (8) — operator gate, dashboard segments/forecast, top customers,
+three forecast horizons + bounds, upgrade/downgrade + expansion/contraction from real plan changes,
+idempotent monthly/daily snapshots + segments persistence, Prometheus gauges + audit + operator-tenant storage.
+
+---
+
 ### Shared Prometheus registry (observability)
 
 Every module now increments **one** `prom-client` registry (`src/common/metrics/metrics.service.ts`)

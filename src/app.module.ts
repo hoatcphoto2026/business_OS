@@ -94,6 +94,10 @@ import { ExecutiveModule } from './modules/executive/executive.module';
 import { ExecutiveMetric } from './modules/executive/entities/executive-metric.entity';
 import { ExecutiveSnapshot } from './modules/executive/entities/executive-snapshot.entity';
 import { MetricHistory } from './modules/executive/entities/metric-history.entity';
+import { RevenueModule } from './modules/revenue/revenue.module';
+import { RevenueSnapshot } from './modules/revenue/entities/revenue-snapshot.entity';
+import { RevenueForecast } from './modules/revenue/entities/revenue-forecast.entity';
+import { RevenueSegment } from './modules/revenue/entities/revenue-segment.entity';
 import { IdentityProvider } from './modules/identity/entities/identity-provider.entity';
 import { IdentityMapping } from './modules/identity/entities/identity-mapping.entity';
 import { SSOSession } from './modules/identity/entities/sso-session.entity';
@@ -237,6 +241,9 @@ import { PaymentTransaction } from './modules/billing/entities/payment-transacti
           ExecutiveMetric,
           ExecutiveSnapshot,
           MetricHistory,
+          RevenueSnapshot,
+          RevenueForecast,
+          RevenueSegment,
           UserCompany,
           UserBranch,
           UserDepartment,
@@ -363,6 +370,7 @@ import { PaymentTransaction } from './modules/billing/entities/payment-transacti
     SecurityModule,
     ReportingModule,
     ExecutiveModule,
+    RevenueModule,
     ...(process.env.NODE_ENV !== 'production' ? [DemoModule] : []),
   ],
   providers: [
