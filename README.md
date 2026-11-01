@@ -682,6 +682,12 @@ database can never be dropped by accident. Override the target with
 whenever `E2E_ISOLATED=1` (set by the runner), so a leaked `DB_NAME` from the shell
 can never make e2e write into the application database.
 
+> **Trước khi chạy `npm run test:e2e` (không isolated):** DB đích **phải** đã
+> `npm run migration:run` + `npm run seed`. `test/e2e-preflight.js` (Jest
+> `globalSetup`) kiểm tra các bảng C4–C6 và **fail-fast** với hướng dẫn cụ thể
+> thay vì để hàng loạt test fail `relation ... does not exist`. Runner isolated
+> bỏ qua preflight vì nó tự migrate trước khi chạy Jest.
+
 ### 2. Purge test data from the current database
 
 ```bash

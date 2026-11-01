@@ -116,6 +116,10 @@ Thêm bảng/feature mới ⇒ cập nhật seeder tương ứng, đừng để 
 - Nếu buộc chạy `npm run test:e2e` trên DB dev thì **sau đó phải**:
   `npm run db:purge-test-data:apply` → `npm run seed`.
 - Không để lại tenant/user rác: chỉ `ABC` + `CAFE_MOC` (+ 6 demo user) là hợp lệ.
+- Chạy `npm run test:e2e` (không isolated) trên DB dev ⇒ DB đó **phải** đã
+  `npm run migration:run` + `npm run seed`; `test/e2e-preflight.js` (Jest `globalSetup`)
+  sẽ chặn ngay nếu thiếu bảng C4–C6 (thay vì 17 test fail vì `relation does not exist`).
+  Sau khi chạy xong vẫn phải `db:purge-test-data:apply` + `seed`.
 - Không commit đường dẫn tuyệt đối của sandbox (`/tmp/...`, `/workspace/...`).
   Dùng `path.resolve(__dirname, ...)` hoặc đường dẫn tương đối với repo.
 - Test phải **tự tạo dữ liệu riêng và cleanup**; không phụ thuộc thứ tự chạy giữa các suite
