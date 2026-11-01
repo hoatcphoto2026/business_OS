@@ -56,6 +56,9 @@ Thêm bảng/feature mới ⇒ cập nhật seeder tương ứng, đừng để 
 ### 1.7 Hardening (đã bật, giữ nguyên)
 - `helmet` bật trong `src/main.ts` (CSP tắt ở dev cho Swagger UI, bật ở production).
 - **Health probes**: `GET /health`, `GET /health/ready` — public, `@SkipThrottle`, không nằm dưới prefix `api/v1`.
+- **Metrics**: dùng `MetricsService` (prom-client registry dùng chung ở `src/common/metrics`).
+  Không tạo `Map<string, number>` counter riêng trong service mới; dùng `metrics.inc(name, labels)` /
+  `metrics.set(...)` để có label và không mất số liệu khi module khác scrape.
 - `ThrottlerGuard` là `APP_GUARD` toàn cục: `THROTTLE_TTL_MS` × `THROTTLE_LIMIT` theo IP.
   `POST /auth/login` bị giới hạn chặt hơn: **10 request/phút/IP**.
   Endpoint public mới cân nhắc `@Throttle` chặt hơn hoặc `@SkipThrottle` (có lý do rõ ràng).
@@ -74,12 +77,14 @@ Thêm bảng/feature mới ⇒ cập nhật seeder tương ứng, đừng để 
 - Mapping is idempotent by `(endpoint_id, resource_type, external_id)`; SCIM resource `id`
   is the mapping id, never the internal user/team id.
 - Tenant isolation: every query filters by `endpoint.tenantId` **and** `endpointId`.
+- Bulk: tối đa 100 operation/lần, mỗi operation có status riêng; sort chỉ nhận thuộc tính trong whitelist
+  (`userName`, `displayName`, `externalId`, `id`, `meta.created`).
 
 ---
 
 ## 2. Definition of Done — verify trước khi báo "xong"
 
-- [ ] `npm run verify` → lint + build + unit + e2e isolated (baseline hiện tại: **43 suites / 186 tests PASS**)
+- [ ] `npm run verify` → lint + build + unit + e2e isolated (baseline hiện tại: **43 suites / 189 tests PASS**)
 - [ ] Sửa nhỏ thì chạy nhanh `npm run verify:fast` (lint + build + unit)
 - [ ] Muốn xem warning của lint: `npm run lint:check` (CI fail khi có **error**, warning không chặn)
 - [ ] Nếu chạm auth / guard / billing / seed: chạy lại với `NODE_ENV=test` (parity CI)
@@ -93,6 +98,8 @@ Thêm bảng/feature mới ⇒ cập nhật seeder tương ứng, đừng để 
 
 - e2e mặc định chạy trên **DB riêng** `business_os_e2e` (`npm run test:e2e:isolated`) —
   runner tự tạo → migrate → seed → test → drop, và **từ chối chạy nếu trùng `DB_NAME`**.
+  Ngoài ra `test/setup-e2e.ts` (jest `setupFiles`) **ép `process.env.DB_NAME`** khi
+  `E2E_ISOLATED=1`, nên kể cả shell/session leak `DB_NAME` thì e2e cũng không thể ghi vào DB app.
 - Nếu buộc chạy `npm run test:e2e` trên DB dev thì **sau đó phải**:
   `npm run db:purge-test-data:apply` → `npm run seed`.
 - Không để lại tenant/user rác: chỉ `ABC` + `CAFE_MOC` (+ 6 demo user) là hợp lệ.
@@ -130,6 +137,7 @@ Thêm bảng/feature mới ⇒ cập nhật seeder tương ứng, đừng để 
 | 8 | `npm run lint` lỗi vì thiếu `eslint` | Script khai báo nhưng dependency chưa cài; config test còn trỏ `/tmp` | `.eslintrc.js`, devDeps `eslint` + `@typescript-eslint/*`, CI step `lint:check` |
 | 9 | Thiếu header bảo mật & rate limit toàn cục | Chưa có `helmet`, chưa có giới hạn request theo IP | `src/main.ts` (helmet + `TRUST_PROXY`), `src/app.module.ts` (`ThrottlerGuard` + `THROTTLE_*`) |
 | 10 | SSO test pass nhưng IdP thật (Google/Entra) không login được | `verifyIdToken` chỉ hỗ trợ HS256 (client secret), không đọc JWKS; discovery lại khai báo RS256 | `identity.service.ts`: RS256/384/512 + JWKS cache/kid rotation + exchange authorization code server-side |
+| 11 | Chạy `npm run verify` nhưng dữ liệu e2e vẫn rơi vào DB app | `DB_NAME` từ shell/.env thắng env của runner trong tiến trình Jest | `test/setup-e2e.ts` (jest `setupFiles`) ép `DB_NAME` khi `E2E_ISOLATED=1` + runner set `E2E_ISOLATED`/`E2E_DB_NAME` |
 
 ---
 

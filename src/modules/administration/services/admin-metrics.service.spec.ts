@@ -1,10 +1,11 @@
 import { AdminMetricsService } from '../services/admin-metrics.service';
+import { MetricsService } from '../../../common/metrics/metrics.service';
 
 describe('AdminMetricsService (unit)', () => {
   let service: AdminMetricsService;
 
   beforeEach(() => {
-    service = new AdminMetricsService();
+    service = new AdminMetricsService(new MetricsService());
   });
 
   it('records requests and computes 403 ratio', () => {
@@ -17,12 +18,12 @@ describe('AdminMetricsService (unit)', () => {
     expect(snap.deniedRatio).toBeCloseTo(0.6667, 3);
   });
 
-  it('exposes prometheus text with counters', () => {
+  it('exposes prometheus text with counters', async () => {
     service.record('GET', 200, 't', 5);
     service.incApiKeyCreated('tenant-abc');
     service.incWebhookError('wh-1', 'timeout');
-    const text = service.prometheus();
-    expect(text).toContain('admin_http_requests_total');
+    const text = await service.prometheus();
+    expect(text).toContain('http_requests_total');
     expect(text).toContain('apikey_created_total');
     expect(text).toContain('webhook_delivery_errors_total');
     expect(text).toContain('admin_denied_ratio');

@@ -17,6 +17,7 @@ import { ApiExcludeController } from '@nestjs/swagger';
 import { ScimAuthGuard } from './scim-auth.guard';
 import { ScimUsersService } from './scim-users.service';
 import { ScimGroupsService } from './scim-groups.service';
+import { ScimBulkService } from './scim-bulk.service';
 import { ScimContext } from './scim.types';
 import {
   SCIM_ENTERPRISE_USER,
@@ -37,6 +38,7 @@ export class ScimController {
   constructor(
     private readonly users: ScimUsersService,
     private readonly groups: ScimGroupsService,
+    private readonly bulkService: ScimBulkService,
   ) {}
 
   private ctx(req: any): ScimContext {
@@ -56,10 +58,10 @@ export class ScimController {
       schemas: [SCIM_SP_CONFIG],
       documentationUri: 'https://www.rfc-editor.org/rfc/rfc7644',
       patch: { supported: true },
-      bulk: { supported: false, maxOperations: 0, maxPayloadSize: 0 },
+      bulk: { supported: true, maxOperations: 100, maxPayloadSize: 1048576 },
       filter: { supported: true, maxResults: 200 },
       changePassword: { supported: false },
-      sort: { supported: false },
+      sort: { supported: true },
       etag: { supported: false },
       authenticationSchemes: [
         {
@@ -190,5 +192,11 @@ export class ScimController {
   @HttpCode(HttpStatus.NO_CONTENT)
   deleteGroup(@Req() req: any, @Param('id') id: string) {
     return this.groups.remove(this.ctx(req), id);
+  }
+
+  @Post('Bulk')
+  @HttpCode(HttpStatus.OK)
+  bulk(@Req() req: any, @Body() body: Record<string, any>) {
+    return this.bulkService.process(this.ctx(req), body);
   }
 }

@@ -1,3 +1,4 @@
+import { MetricsService } from '../../common/metrics/metrics.service';
 import { Injectable, NotFoundException, Logger, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -22,7 +23,6 @@ export interface SendNotificationDto {
 @Injectable()
 export class NotificationService {
   private readonly logger = new Logger(NotificationService.name);
-  private readonly counters = new Map<string, number>();
 
   constructor(
     @InjectRepository(Notification)
@@ -33,6 +33,7 @@ export class NotificationService {
     private readonly deliveryRepo: Repository<NotificationDeliveryLog>,
     private readonly tenantContext: TenantContextService,
     private readonly audit: AuditService,
+    private readonly metricsService: MetricsService,
   ) {}
 
   // ──────────────────────────────────────────────
@@ -73,7 +74,7 @@ export class NotificationService {
       createdBy: data.userId,
     });
     const saved = await this.notifRepo.save(n);
-    this.inc('notifications_created_total');
+    this.metricsService.inc('notifications_created_total');
     return saved;
   }
 
@@ -183,7 +184,7 @@ export class NotificationService {
       this.logger.warn('Audit skipped for notification send');
     }
 
-    this.inc('notifications_sent_total');
+    this.metricsService.inc('notifications_sent_total');
     return { notification, deliveries };
   }
 
@@ -212,7 +213,7 @@ export class NotificationService {
       log.status = DeliveryStatus.FAILED;
       log.errorMessage = err.message;
       this.logger.warn(`Delivery failed (${log.channel}): ${err.message}`);
-      this.inc('notifications_failed_total');
+      this.metricsService.inc('notifications_failed_total');
     }
 
     await this.deliveryRepo.save(log);
@@ -261,16 +262,8 @@ export class NotificationService {
   // Prometheus metrics
   // ──────────────────────────────────────────────
 
-  private inc(name: string, by = 1) {
-    this.counters.set(name, (this.counters.get(name) || 0) + by);
-  }
 
-  getPrometheusText(): string {
-    const lines: string[] = [];
-    for (const [k, v] of this.counters.entries()) {
-      lines.push(`# TYPE ${k} counter`);
-      lines.push(`${k} ${v}`);
-    }
-    return lines.join('\n') + '\n';
+  async getPrometheusText(): Promise<string> {
+    return this.metricsService.text();
   }
 }

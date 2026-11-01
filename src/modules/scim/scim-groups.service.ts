@@ -65,7 +65,7 @@ export class ScimGroupsService {
 
     const [rows, total] = await this.mappings.findAndCount({
       where,
-      order: { createdAt: 'ASC' },
+      order: this.orderFor(query),
       skip: startIndex - 1,
       take: count,
     });
@@ -338,6 +338,25 @@ export class ScimGroupsService {
 
 
   // ─── Helpers ──────────────────────────────────────────────────
+
+  private orderFor(query: ScimBody): Record<string, 'ASC' | 'DESC'> {
+    const direction =
+      String(query.sortOrder ?? '').toLowerCase() === 'descending' ? 'DESC' : 'ASC';
+    const sortBy = String(query.sortBy ?? '').toLowerCase();
+    const map: Record<string, string> = {
+      displayname: 'displayName',
+      externalid: 'externalId',
+      id: 'id',
+      createdat: 'createdAt',
+      'meta.created': 'createdAt',
+    };
+    if (!sortBy) return { createdAt: direction };
+    const column = map[sortBy];
+    if (!column) {
+      scimError(400, `Unsupported sortBy attribute: ${query.sortBy}`, 'invalidValue');
+    }
+    return { [column]: direction };
+  }
 
   private async assertMapping(ctx: ScimContext, id: string): Promise<ScimMapping> {
     const mapping = await this.mappings.findOne({

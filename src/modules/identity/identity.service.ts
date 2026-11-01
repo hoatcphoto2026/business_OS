@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { createHmac, createPublicKey, randomBytes, randomUUID, timingSafeEqual, verify as cryptoVerify } from 'crypto';
+import { createHash, createHmac, createPublicKey, randomBytes, randomUUID, timingSafeEqual, verify as cryptoVerify } from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { IdentityProvider } from './entities/identity-provider.entity';
 import { IdentityMapping } from './entities/identity-mapping.entity';
@@ -24,6 +24,7 @@ import { UserRole } from '../rbac/entities/user-role.entity';
 import { AuthService } from '../auth/auth.service';
 import { AuditService } from '../audit/audit.service';
 import { AuditAction } from '../audit/enums/audit-action.enum';
+import { MetricsService } from '../../common/metrics/metrics.service';
 
 const GOOGLE_ISSUER = 'https://accounts.google.com';
 const SESSION_TTL_MS = 15 * 60 * 1000;
@@ -62,7 +63,6 @@ interface IdTokenClaims {
 @Injectable()
 export class IdentityService {
   private readonly logger = new Logger(IdentityService.name);
-  private readonly counters = new Map<string, number>();
   /** issuer -> JWKS keys (cached to avoid fetching on every login). */
   private readonly jwksCache = new Map<string, { keys: JwkKey[]; fetchedAt: number }>();
 
@@ -86,6 +86,7 @@ export class IdentityService {
     private readonly tenantContext: TenantContextService,
     private readonly auth: AuthService,
     private readonly audit: AuditService,
+    private readonly metricsService: MetricsService,
   ) {}
 
   async createProvider(dto: CreateIdentityProviderDto) {
@@ -113,7 +114,7 @@ export class IdentityService {
       }),
     );
     await this.auditSafe('identity_provider', saved.id, AuditAction.CREATE, { code: saved.code, type: saved.type });
-    this.inc('identity_providers_created_total');
+    this.metricsService.inc('identity_providers_created_total');
     return this.publicProvider(saved);
   }
 
@@ -159,6 +160,7 @@ export class IdentityService {
       token_endpoint: endpoints.token,
       jwks_uri: endpoints.jwks,
       response_types_supported: ['code', 'id_token'],
+      code_challenge_methods_supported: ['S256'],
       subject_types_supported: ['public'],
       id_token_signing_alg_values_supported: ['HS256', 'RS256'],
     };
@@ -168,17 +170,25 @@ export class IdentityService {
     const provider = await this.requireEnabled(code, tenantCode);
     const state = randomUUID();
     const nonce = randomUUID();
+    // PKCE (RFC 7636): the verifier never leaves the backend.
+    const codeVerifier = randomBytes(32).toString('base64url');
+    const codeChallenge = createHash('sha256')
+      .update(codeVerifier)
+      .digest('base64url');
     const session = await this.sessions.save(
       this.sessions.create({
         tenantId: provider.tenantId,
         providerId: provider.id,
         state,
         nonce,
+        codeVerifier,
+        codeChallenge,
+        codeChallengeMethod: 'S256',
         status: SsoSessionStatus.PENDING,
         traceId: traceId ?? null,
       }),
     );
-    this.inc('identity_logins_started_total');
+    this.metricsService.inc('identity_logins_started_total');
     if (provider.type === IdentityProviderType.SAML) {
       return {
         protocol: 'saml',
@@ -197,6 +207,8 @@ export class IdentityService {
     url.searchParams.set('scope', 'openid email profile');
     url.searchParams.set('state', state);
     url.searchParams.set('nonce', nonce);
+    url.searchParams.set('code_challenge', codeChallenge);
+    url.searchParams.set('code_challenge_method', 'S256');
     return { protocol: 'oidc', sessionId: session.id, state, authorizationUrl: url.toString() };
   }
 
@@ -220,7 +232,7 @@ export class IdentityService {
     // Prefer the authorization code: the exchange happens server-side, so the
     // client secret never leaves the backend.
     const idToken = dto.code
-      ? await this.exchangeCode(provider, dto.code)
+      ? await this.exchangeCode(provider, dto.code, session.codeVerifier)
       : (dto.idToken as string);
     const claims = await this.verifyIdToken(idToken, provider, session.nonce);
     const tenant = await this.tenants.findOne({ where: { id: provider.tenantId } });
@@ -232,7 +244,7 @@ export class IdentityService {
     session.externalSubject = claims.sub;
     session.authenticatedAt = new Date();
     await this.sessions.save(session);
-    this.inc('identity_logins_total');
+    this.metricsService.inc('identity_logins_total');
     this.tagSpan(provider.id, provider.type);
 
     const issued = await this.auth.issueTenantSession(provisioned.user, provisioned.membership, {
@@ -259,13 +271,8 @@ export class IdentityService {
     });
   }
 
-  metrics(): string {
-    const lines: string[] = [];
-    for (const [name, value] of this.counters.entries()) {
-      lines.push(`# TYPE ${name} counter`);
-      lines.push(`${name} ${value}`);
-    }
-    return lines.join('\n') + (lines.length ? '\n' : '');
+  async metrics(): Promise<string> {
+    return this.metricsService.text();
   }
 
   private async provision(
@@ -291,7 +298,7 @@ export class IdentityService {
         }),
       );
       createdUser = true;
-      this.inc('identity_users_provisioned_total');
+      this.metricsService.inc('identity_users_provisioned_total');
     }
     let membership = await this.memberships.findOne({
       where: { tenantId: provider.tenantId, userId: user.id },
@@ -422,7 +429,11 @@ export class IdentityService {
   }
 
   /** Exchange the authorization code at the provider token endpoint (server-side). */
-  private async exchangeCode(provider: IdentityProvider, code: string): Promise<string> {
+  private async exchangeCode(
+    provider: IdentityProvider,
+    code: string,
+    codeVerifier: string | null = null,
+  ): Promise<string> {
     const endpoints = this.endpoints(provider);
     const body = new URLSearchParams({
       grant_type: 'authorization_code',
@@ -430,6 +441,7 @@ export class IdentityService {
       client_id: provider.clientId,
       client_secret: provider.clientSecret,
       redirect_uri: provider.redirectUri,
+      ...(codeVerifier ? { code_verifier: codeVerifier } : {}),
     });
 
     let response: Response;
@@ -577,10 +589,6 @@ export class IdentityService {
     } catch {
       return null;
     }
-  }
-
-  private inc(name: string) {
-    this.counters.set(name, (this.counters.get(name) ?? 0) + 1);
   }
 
   private async auditSafe(entity: string, id: string, action: AuditAction, data: Record<string, unknown>) {

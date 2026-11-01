@@ -6,6 +6,7 @@ import { ScimProvisioningService } from './scim-provisioning.service';
 import { ScimUsersService } from './scim-users.service';
 import { ScimGroupsService } from './scim-groups.service';
 import { ScimAdminService } from './scim-admin.service';
+import { ScimBulkService } from './scim-bulk.service';
 import { ScimAuthGuard } from './scim-auth.guard';
 import { ScimEndpoint } from './entities/scim-endpoint.entity';
 import { ScimMapping } from './entities/scim-mapping.entity';
@@ -44,6 +45,7 @@ import { TenantModule } from '../tenant/tenant.module';
     ScimProvisioningService,
     ScimUsersService,
     ScimGroupsService,
+    ScimBulkService,
     ScimAdminService,
     ScimAuthGuard,
   ],

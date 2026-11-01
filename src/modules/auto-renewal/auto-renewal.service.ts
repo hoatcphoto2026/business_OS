@@ -1,3 +1,4 @@
+import { MetricsService } from '../../common/metrics/metrics.service';
 import { Injectable, Logger, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThanOrEqual } from 'typeorm';
@@ -16,7 +17,6 @@ const MAX_RETRIES = 3;
 @Injectable()
 export class AutoRenewalService {
   private readonly logger = new Logger(AutoRenewalService.name);
-  private readonly counters = new Map<string, number>();
 
   constructor(
     @InjectRepository(RenewalAttempt)
@@ -26,6 +26,7 @@ export class AutoRenewalService {
     private readonly tenantContext: TenantContextService,
     private readonly audit: AuditService,
     private readonly notifications: NotificationService,
+    private readonly metricsService: MetricsService,
   ) {}
 
   private getTenantId(): string {
@@ -38,17 +39,9 @@ export class AutoRenewalService {
     return this.tenantContext.getCurrentUserId() || '';
   }
 
-  private inc(name: string) {
-    this.counters.set(name, (this.counters.get(name) || 0) + 1);
-  }
 
-  getPrometheusText(): string {
-    const lines: string[] = [];
-    for (const [k, v] of this.counters.entries()) {
-      lines.push(`# TYPE ${k} counter`);
-      lines.push(`${k} ${v}`);
-    }
-    return lines.join('\n') + '\n';
+  async getPrometheusText(): Promise<string> {
+    return this.metricsService.text();
   }
 
   /**
@@ -121,7 +114,7 @@ export class AutoRenewalService {
 
       saved.status = RenewalStatus.RENEWED;
       saved.processedAt = new Date();
-      this.inc('renewals_renewed_total');
+      this.metricsService.inc('renewals_renewed_total');
 
       // 4. Notify
       try {
@@ -142,10 +135,10 @@ export class AutoRenewalService {
         grace.setDate(grace.getDate() + GRACE_DAYS);
         sub.gracePeriodEnd = grace;
         await this.subscriptions.save(sub);
-        this.inc('renewals_past_due_total');
+        this.metricsService.inc('renewals_past_due_total');
       } else {
         saved.status = RenewalStatus.FAILED;
-        this.inc('renewals_failed_total');
+        this.metricsService.inc('renewals_failed_total');
       }
       this.logger.warn(`Renewal failed for ${sub.id}: ${err.message}`);
     }

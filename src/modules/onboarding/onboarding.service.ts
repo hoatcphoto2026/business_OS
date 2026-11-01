@@ -1,3 +1,4 @@
+import { MetricsService } from '../../common/metrics/metrics.service';
 import { Injectable, Logger, ConflictException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
@@ -18,7 +19,6 @@ import { AuditAction } from '../audit/enums/audit-action.enum';
 @Injectable()
 export class OnboardingService {
   private readonly logger = new Logger(OnboardingService.name);
-  private readonly counters = new Map<string, number>();
 
   constructor(
     @InjectRepository(TenantOnboarding)
@@ -36,19 +36,12 @@ export class OnboardingService {
     private readonly notifications: NotificationService,
     private readonly audit: AuditService,
     private readonly dataSource: DataSource,
+    private readonly metricsService: MetricsService,
   ) {}
 
-  private inc(name: string) {
-    this.counters.set(name, (this.counters.get(name) || 0) + 1);
-  }
 
-  getPrometheusText(): string {
-    const lines: string[] = [];
-    for (const [k, v] of this.counters.entries()) {
-      lines.push(`# TYPE ${k} counter`);
-      lines.push(`${k} ${v}`);
-    }
-    return lines.join('\n') + '\n';
+  async getPrometheusText(): Promise<string> {
+    return this.metricsService.text();
   }
 
   async start(dto: StartOnboardingDto): Promise<TenantOnboarding> {
@@ -71,12 +64,12 @@ export class OnboardingService {
 
     try {
       await this.runFlow(onboarding, dto);
-      this.inc('onboarding_completed_total');
+      this.metricsService.inc('onboarding_completed_total');
     } catch (err: any) {
       onboarding.status = OnboardingStatus.FAILED;
       onboarding.errorMessage = err.message || String(err);
       await this.onboardings.save(onboarding);
-      this.inc('onboarding_failed_total');
+      this.metricsService.inc('onboarding_failed_total');
       this.logger.error(`Onboarding failed: ${err.message}`);
       // Do not rethrow – return the FAILED record so caller can retry
     }
@@ -107,12 +100,12 @@ export class OnboardingService {
 
     try {
       await this.runFlow(onboarding, dto);
-      this.inc('onboarding_retry_success_total');
+      this.metricsService.inc('onboarding_retry_success_total');
     } catch (err: any) {
       onboarding.status = OnboardingStatus.FAILED;
       onboarding.errorMessage = err.message || String(err);
       await this.onboardings.save(onboarding);
-      this.inc('onboarding_retry_failed_total');
+      this.metricsService.inc('onboarding_retry_failed_total');
     }
 
     return this.onboardings.findOne({ where: { id } }) as Promise<TenantOnboarding>;

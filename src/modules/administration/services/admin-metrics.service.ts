@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { MetricsService } from '../../../common/metrics/metrics.service';
 
 interface Sample {
   at: number;
@@ -14,7 +15,8 @@ export class AdminMetricsService {
   private readonly logger = new Logger('AdminMetrics');
   private readonly samples: Sample[] = [];
   private alerts = 0;
-  private readonly counters = new Map<string, number>();
+
+  constructor(private readonly metrics: MetricsService) {}
 
   record(method: string, status: number, traceId: string, ms: number, path?: string) {
     const now = Date.now();
@@ -22,7 +24,7 @@ export class AdminMetricsService {
     const cutoff = now - 60_000;
     while (this.samples.length && this.samples[0].at < cutoff) this.samples.shift();
 
-    this.inc(`http_requests_total{status="${status}",method="${method}"}`);
+    this.metrics.inc('http_requests_total', { status: String(status), method });
 
     const denied = this.samples.filter((s) => s.status === 403).length;
     const total = this.samples.length;
@@ -31,6 +33,7 @@ export class AdminMetricsService {
 
     if (ratio > 0.20 || denied >= 20 || mutations >= 40) {
       this.alerts += 1;
+      this.metrics.inc('admin_403_alerts_total');
       this.logger.warn(
         `ALERT admin_403_spike trace=${traceId} denied=${denied} ratio=${ratio.toFixed(2)} mutations=${mutations} window=60s`,
       );
@@ -38,16 +41,14 @@ export class AdminMetricsService {
   }
 
   incApiKeyCreated(tenantId: string) {
-    this.inc(`apikey_created_total{tenant="${tenantId}"}`);
+    this.metrics.inc('apikey_created_total', { tenant: tenantId });
   }
 
   incWebhookError(webhookId: string, reason: string) {
-    this.inc(`webhook_delivery_errors_total{webhook="${webhookId}",reason="${reason}"}`);
+    this.metrics.inc('webhook_delivery_errors_total', { webhook: webhookId, reason });
   }
 
-  private inc(key: string) {
-    this.counters.set(key, (this.counters.get(key) || 0) + 1);
-  }
+
 
   snapshot() {
     const requests = this.samples.length;
@@ -69,21 +70,8 @@ export class AdminMetricsService {
     };
   }
 
-  prometheus(): string {
-    const lines: string[] = [
-      '# HELP admin_http_requests_total Admin HTTP requests',
-      '# TYPE admin_http_requests_total counter',
-    ];
-    for (const [key, value] of this.counters) {
-      lines.push(`${key} ${value}`);
-    }
-    lines.push('# HELP admin_403_alerts_total Number of 403 spike alerts fired');
-    lines.push('# TYPE admin_403_alerts_total counter');
-    lines.push(`admin_403_alerts_total ${this.alerts}`);
-    lines.push('# HELP admin_denied_ratio Current 60s 403 ratio');
-    lines.push('# TYPE admin_denied_ratio gauge');
-    const snap = this.snapshot();
-    lines.push(`admin_denied_ratio ${snap.deniedRatio}`);
-    return lines.join('\n') + '\n';
+  async prometheus(): Promise<string> {
+    this.metrics.set('admin_denied_ratio', this.snapshot().deniedRatio);
+    return this.metrics.text();
   }
 }

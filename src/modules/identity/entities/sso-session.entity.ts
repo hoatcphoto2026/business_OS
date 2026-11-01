@@ -23,6 +23,20 @@ export class SSOSession {
   @Column({ type: 'varchar', length: 128 })
   nonce!: string;
 
+  @Column({ name: 'code_verifier', type: 'varchar', length: 128, nullable: true })
+  codeVerifier!: string | null;
+
+  @Column({ name: 'code_challenge', type: 'varchar', length: 128, nullable: true })
+  codeChallenge!: string | null;
+
+  @Column({
+    name: 'code_challenge_method',
+    type: 'varchar',
+    length: 10,
+    nullable: true,
+  })
+  codeChallengeMethod!: string | null;
+
   @Column({ type: 'varchar', length: 20, default: SsoSessionStatus.PENDING })
   status!: SsoSessionStatus;
 

@@ -437,6 +437,9 @@ describe('Enterprise Identity (e2e)', () => {
         .query({ tenant: 'ABC' })
         .expect(200);
       issuedNonce = new URL(started.body.authorizationUrl).searchParams.get('nonce') as string;
+      // PKCE: challenge is sent to the IdP, the verifier stays in the backend.
+      expect(started.body.authorizationUrl).toContain('code_challenge=');
+      expect(started.body.authorizationUrl).toContain('code_challenge_method=S256');
 
       const done = await request(app.getHttpServer())
         .post('/identity/callback')
@@ -449,6 +452,7 @@ describe('Enterprise Identity (e2e)', () => {
       expect(tokenRequests[0]).toContain('grant_type=authorization_code');
       expect(tokenRequests[0]).toContain('code=auth-code-123');
       expect(tokenRequests[0]).toContain(`client_id=${clientId}`);
+      expect(tokenRequests[0]).toContain('code_verifier=');
 
       // The same state cannot be replayed once the session is completed.
       await request(app.getHttpServer())
@@ -458,5 +462,52 @@ describe('Enterprise Identity (e2e)', () => {
     } finally {
       fetchMock.mockRestore();
     }
+  });
+
+  it('cleans up abandoned SSO sessions on demand', async () => {
+    const provider = await createProvider({
+      code: `cleanup-${stamp}`,
+      name: 'Cleanup provider',
+      type: 'OIDC',
+      issuer: `https://cleanup-${stamp}.example.com`,
+      clientId: `cleanup-client-${stamp}`,
+      clientSecret: secret,
+      redirectUri: 'https://app.example/callback',
+    });
+
+    const dataSource = app.get(DataSource);
+    const tenantRows = await dataSource.query(
+      `SELECT id FROM tenants WHERE code = 'ABC'`,
+    );
+    const tenantId = tenantRows[0].id as string;
+    const oldState = `old-state-${stamp}`;
+    const freshState = `fresh-state-${stamp}`;
+
+    await dataSource.query(
+      `INSERT INTO sso_sessions (tenant_id, provider_id, state, nonce, status, created_at)
+       VALUES ($1, $2, $3, 'nonce', 'PENDING', now() - interval '2 hours')`,
+      [tenantId, provider.id, oldState],
+    );
+    await dataSource.query(
+      `INSERT INTO sso_sessions (tenant_id, provider_id, state, nonce, status, created_at)
+       VALUES ($1, $2, $3, 'nonce', 'PENDING', now())`,
+      [tenantId, provider.id, freshState],
+    );
+
+    const cleaned = await request(app.getHttpServer())
+      .post('/identity/sessions/cleanup')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(201);
+    expect(cleaned.body.pendingDeleted).toBeGreaterThanOrEqual(1);
+
+    const remaining = await dataSource.query(
+      `SELECT state FROM sso_sessions WHERE state IN ($1, $2)`,
+      [oldState, freshState],
+    );
+    const states = remaining.map((row: { state: string }) => row.state);
+    expect(states).not.toContain(oldState);
+    expect(states).toContain(freshState);
+
+    await dataSource.query(`DELETE FROM sso_sessions WHERE state = $1`, [freshState]);
   });
 });

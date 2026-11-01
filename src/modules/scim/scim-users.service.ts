@@ -69,7 +69,7 @@ export class ScimUsersService {
 
     const [rows, total] = await this.mappings.findAndCount({
       where,
-      order: { createdAt: 'ASC' },
+      order: this.orderFor(query),
       skip: startIndex - 1,
       take: count,
     });
@@ -421,6 +421,26 @@ export class ScimUsersService {
         version: `W/"${modified}"`,
       },
     };
+  }
+
+  private orderFor(query: ScimBody): Record<string, 'ASC' | 'DESC'> {
+    const direction =
+      String(query.sortOrder ?? '').toLowerCase() === 'descending' ? 'DESC' : 'ASC';
+    const sortBy = String(query.sortBy ?? '').toLowerCase();
+    const map: Record<string, string> = {
+      username: 'userName',
+      externalid: 'externalId',
+      displayname: 'displayName',
+      id: 'id',
+      createdat: 'createdAt',
+      'meta.created': 'createdAt',
+    };
+    if (!sortBy) return { createdAt: direction };
+    const column = map[sortBy];
+    if (!column) {
+      scimError(400, `Unsupported sortBy attribute: ${query.sortBy}`, 'invalidValue');
+    }
+    return { [column]: direction };
   }
 
   private parseFilter(filter?: string): { attribute: string; value: string } | null {

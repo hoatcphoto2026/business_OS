@@ -3,7 +3,7 @@
 **Autonomous Enterprise SaaS Platform**
 
 Archive: `business-os-backend-epic-b-complete.tar.gz`  
-Full e2e: **43/43 suites, 186/186 tests PASS** (verified on a fresh database, 2026-10-31)
+Full e2e: **43/43 suites, 189/189 tests PASS** (verified on a fresh database, 2026-10-31)
 
 ---
 
@@ -109,7 +109,7 @@ npm run seed
 npm run test:e2e
 ```
 
-Expected: **43 suites passed, 186 tests passed**.
+Expected: **43 suites passed, 189 tests passed**.
 
 ---
 
@@ -190,6 +190,10 @@ Password for all: `Password123!`
   refresh on key rotation); HS256 kept only for internal/mock providers
 - **Callback** accepts either `code` (exchanged server-side at the token endpoint, client secret never
   leaves the backend) or a pre-obtained `id_token`
+- **PKCE (S256)**: a verifier is generated per login, only its SHA-256 challenge is sent to the IdP,
+  and the verifier is stored on the session and used during the server-side code exchange
+- **Session hygiene**: `POST /identity/sessions/cleanup` (manual) plus an hourly cron delete
+  `PENDING` sessions older than 1h and `ACTIVE` sessions older than 7 days
 - **Entra**: issuer / authorize / token / JWKS derived from `entraTenantId` (required at creation)
 - Auto-provisioning: user → membership → RBAC role, idempotent via `identity_mappings`
 - SAML: discovery metadata only (assertion consumer not enabled)
@@ -209,10 +213,11 @@ error, trace id, completed/dead-letter timestamps).
 | Method | Path | Notes |
 |---|---|---|
 | GET | `/scim/v2/ServiceProviderConfig` · `/ResourceTypes` · `/Schemas` | discovery |
-| GET/POST | `/scim/v2/Users` | list (`userName`/`externalId`/`id` `eq` filter, startIndex/count) · create |
+| GET/POST | `/scim/v2/Users` | list (`userName`/`externalId`/`id` `eq` filter, `sortBy`/`sortOrder`, startIndex/count) · create |
 | GET/PUT/PATCH/DELETE | `/scim/v2/Users/:id` | read · replace · PatchOp (active/name/userName/roles) · deprovision |
-| GET/POST | `/scim/v2/Groups` | list · create |
+| GET/POST | `/scim/v2/Groups` | list (filter + sort) · create |
 | GET/PUT/PATCH/DELETE | `/scim/v2/Groups/:id` | read · replace · add/remove members · deactivate |
+| POST | `/scim/v2/Bulk` | RFC 7644 bulk: up to 100 operations, per-operation status, `failOnErrors` |
 
 Groups use the `urn:ietf:params:scim:schemas:extension:businessos:2.0:Group` extension:
 `syncTarget = GROUP | DEPARTMENT | ORGANIZATION` (+ `organizationCode`).
@@ -227,6 +232,21 @@ automatic role mapping (SCIM `roles` → tenant RBAC role, fallback to the endpo
 provisioning status tracking, retry (max 3 attempts), dead-letter queue (`status = DEAD`,
 `dead_letter_at`), audit logging, Prometheus counters, OpenTelemetry span attributes.
 
-**Tests:** `scim` (9) — token auth/disabled endpoint, discovery, user CRUD + filter + suspend/reactivate,
-role mapping, org/department/group sync, plain group sync, status + retry + DLQ, metrics, tenant isolation.
+**Tests:** `scim` (11) — token auth/disabled endpoint, discovery, user CRUD + filter + sort + suspend/reactivate,
+role mapping, org/department/group sync, plain group sync, bulk operations, status + retry + DLQ, metrics,
+tenant isolation.
+
+---
+
+### Shared Prometheus registry (observability)
+
+Every module now increments **one** `prom-client` registry (`src/common/metrics/metrics.service.ts`)
+instead of keeping a private `Map`:
+
+- default labels (`service`) + Node.js process metrics are exposed with every scrape
+- per-module `/metrics` endpoints (`/identity/metrics`, `/org/metrics`, `/scim/metrics`, `/audit/metrics`,
+  `/renewals/metrics`, …) all return the same registry, so a single scrape sees the whole process
+- service code uses `metrics.inc('name', { label })` / `metrics.set(...)`; nothing resets on restart
+  within the same process lifecycle, and labels are first-class (e.g. `http_requests_total{status,method}`,
+  `usage_recorded_total{metric,tenant}`)
 

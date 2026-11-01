@@ -8,11 +8,11 @@ import { UsageMetric } from './enums/usage.enum';
 import { TenantContextService } from '../../common/tenant-context/tenant-context.service';
 import { AuditService } from '../audit/audit.service';
 import { AuditAction } from '../audit/enums/audit-action.enum';
+import { MetricsService } from '../../common/metrics/metrics.service';
 
 @Injectable()
 export class UsageService {
   private readonly logger = new Logger(UsageService.name);
-  private readonly counters = new Map<string, number>();
 
   constructor(
     @InjectRepository(UsageRecord)
@@ -23,6 +23,7 @@ export class UsageService {
     private readonly monthly: Repository<UsageMonthly>,
     private readonly tenantContext: TenantContextService,
     private readonly audit: AuditService,
+    private readonly metricsService: MetricsService,
   ) {}
 
   // ──────────────────────────────────────────────
@@ -48,7 +49,7 @@ export class UsageService {
     });
     const saved = await this.records.save(row);
 
-    this.inc(`usage_recorded_total{metric="${metric}",tenant="${tid}"}`, quantity);
+    this.metricsService.inc('usage_recorded_total', { metric, tenant: tid }, quantity);
     this.logger.debug(`Recorded ${quantity} ${metric} for ${tid}`);
 
     return saved;
@@ -214,15 +215,9 @@ export class UsageService {
     }
   }
 
-  private inc(key: string, by = 1) {
-    this.counters.set(key, (this.counters.get(key) || 0) + by);
-  }
 
-  getPrometheusText(): string {
-    const lines = ['# HELP usage_recorded_total Usage events recorded', '# TYPE usage_recorded_total counter'];
-    for (const [k, v] of this.counters) {
-      lines.push(`${k} ${v}`);
-    }
-    return lines.join('\n') + '\n';
+
+  async getPrometheusText(): Promise<string> {
+    return this.metricsService.text();
   }
 }

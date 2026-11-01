@@ -1,3 +1,4 @@
+import { MetricsService } from '../../../common/metrics/metrics.service';
 import { Injectable, Logger, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -34,7 +35,6 @@ export interface CreateWorkflowDto {
 @Injectable()
 export class WorkflowDefinitionService {
   private readonly logger = new Logger(WorkflowDefinitionService.name);
-  private readonly counters = new Map<string, number>();
 
   constructor(
     @InjectRepository(WorkflowDefinition)
@@ -48,6 +48,7 @@ export class WorkflowDefinitionService {
     private readonly tenantContext: TenantContextService,
     private readonly audit: AuditService,
     private readonly notifications: NotificationService,
+    private readonly metricsService: MetricsService,
   ) {}
 
   private getTenantId(): string {
@@ -60,17 +61,9 @@ export class WorkflowDefinitionService {
     return this.tenantContext.getCurrentUserId() || '';
   }
 
-  private inc(name: string) {
-    this.counters.set(name, (this.counters.get(name) || 0) + 1);
-  }
 
-  getPrometheusText(): string {
-    const lines: string[] = [];
-    for (const [k, v] of this.counters.entries()) {
-      lines.push(`# TYPE ${k} counter`);
-      lines.push(`${k} ${v}`);
-    }
-    return lines.join('\n') + '\n';
+  async getPrometheusText(): Promise<string> {
+    return this.metricsService.text();
   }
 
   async create(dto: CreateWorkflowDto): Promise<WorkflowDefinition> {
@@ -142,7 +135,7 @@ export class WorkflowDefinitionService {
       });
     } catch {}
 
-    this.inc('workflow_definitions_created_total');
+    this.metricsService.inc('workflow_definitions_created_total');
     return this.definitions.findOne({
       where: { id: saved.id },
       relations: ['nodes', 'transitions'],
@@ -202,12 +195,12 @@ export class WorkflowDefinitionService {
       saved.status = ExecutionStatus.COMPLETED;
       saved.completedAt = new Date();
       saved.output = { executed: true, input };
-      this.inc('workflow_executions_completed_total');
+      this.metricsService.inc('workflow_executions_completed_total');
     } catch (err: any) {
       saved.status = ExecutionStatus.FAILED;
       saved.errorMessage = err.message;
       saved.retryCount += 1;
-      this.inc('workflow_executions_failed_total');
+      this.metricsService.inc('workflow_executions_failed_total');
       this.logger.warn(`Execution failed: ${err.message}`);
     }
 

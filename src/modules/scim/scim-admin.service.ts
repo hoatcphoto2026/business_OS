@@ -172,7 +172,7 @@ export class ScimAdminService {
     return this.provisioning.getLog(id, this.tenantId());
   }
 
-  metricsText(): string {
+  async metricsText(): Promise<string> {
     return this.provisioning.metricsText();
   }
 

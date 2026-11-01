@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Header, Param, ParseUUIDPipe, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { IdentityService } from './identity.service';
+import { SsoSessionCleanupJob } from './jobs/sso-session-cleanup.job';
 import { CreateIdentityProviderDto, IdentityCallbackDto } from './dto/identity.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../common/guards/tenant.guard';
@@ -10,7 +11,10 @@ import { RequirePermission } from '../rbac/decorators/require-permission.decorat
 @ApiTags('Enterprise Identity')
 @Controller('identity')
 export class IdentityController {
-  constructor(private readonly identity: IdentityService) {}
+  constructor(
+    private readonly identity: IdentityService,
+    private readonly sessionCleanup: SsoSessionCleanupJob,
+  ) {}
 
   @Post('providers')
   @ApiBearerAuth()
@@ -80,6 +84,15 @@ export class IdentityController {
   @ApiOperation({ summary: 'SSO session tracking' })
   sessions() {
     return this.identity.listSessions();
+  }
+
+  @Post('sessions/cleanup')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, TenantGuard, PermissionGuard)
+  @RequirePermission('admin.access')
+  @ApiOperation({ summary: 'Delete expired / abandoned SSO sessions (manual trigger)' })
+  cleanupSessions() {
+    return this.sessionCleanup.run();
   }
 
   @Get('metrics')

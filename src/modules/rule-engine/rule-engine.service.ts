@@ -1,3 +1,4 @@
+import { MetricsService } from '../../common/metrics/metrics.service';
 import { Injectable, Logger, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -17,7 +18,6 @@ import { AutoSuspensionService } from '../auto-suspension/auto-suspension.servic
 @Injectable()
 export class RuleEngineService {
   private readonly logger = new Logger(RuleEngineService.name);
-  private readonly counters = new Map<string, number>();
 
   constructor(
     @InjectRepository(RuleDefinition)
@@ -33,6 +33,7 @@ export class RuleEngineService {
     private readonly notifications: NotificationService,
     private readonly support: SupportService,
     private readonly suspension: AutoSuspensionService,
+    private readonly metricsService: MetricsService,
   ) {}
 
   private getTenantId(): string {
@@ -45,17 +46,9 @@ export class RuleEngineService {
     return this.tenantContext.getCurrentUserId() || '';
   }
 
-  private inc(name: string) {
-    this.counters.set(name, (this.counters.get(name) || 0) + 1);
-  }
 
-  getPrometheusText(): string {
-    const lines: string[] = [];
-    for (const [k, v] of this.counters.entries()) {
-      lines.push(`# TYPE ${k} counter`);
-      lines.push(`${k} ${v}`);
-    }
-    return lines.join('\n') + '\n';
+  async getPrometheusText(): Promise<string> {
+    return this.metricsService.text();
   }
 
   async create(dto: CreateRuleDto): Promise<RuleDefinition> {
@@ -117,7 +110,7 @@ export class RuleEngineService {
       this.logger.warn('Audit skipped on rule create');
     }
 
-    this.inc('rules_created_total');
+    this.metricsService.inc('rules_created_total');
     return this.rules.findOne({
       where: { id: saved.id },
       relations: ['conditions', 'actions'],
@@ -180,15 +173,15 @@ export class RuleEngineService {
         if (matched) {
           const actionResults = await this.executeActions(rule.actions || [], dto.input);
           exec.result = { matched: true, actions: actionResults };
-          this.inc('rules_matched_total');
+          this.metricsService.inc('rules_matched_total');
         } else {
           exec.result = { matched: false };
-          this.inc('rules_not_matched_total');
+          this.metricsService.inc('rules_not_matched_total');
         }
       } catch (err: any) {
         exec.status = RuleExecutionStatus.ERROR;
         exec.errorMessage = err.message;
-        this.inc('rules_error_total');
+        this.metricsService.inc('rules_error_total');
       }
 
       const saved = await this.executions.save(exec);

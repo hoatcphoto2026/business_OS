@@ -1,3 +1,4 @@
+import { MetricsService } from '../../common/metrics/metrics.service';
 import { Injectable, Logger, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -22,7 +23,6 @@ const TEMPLATES: Record<AutoNotifyEvent, string> = {
 @Injectable()
 export class AutoNotificationService {
   private readonly logger = new Logger(AutoNotificationService.name);
-  private readonly counters = new Map<string, number>();
 
   constructor(
     @InjectRepository(AutoNotificationLog)
@@ -30,6 +30,7 @@ export class AutoNotificationService {
     private readonly tenantContext: TenantContextService,
     private readonly audit: AuditService,
     private readonly notifications: NotificationService,
+    private readonly metricsService: MetricsService,
   ) {}
 
   private getTenantId(): string {
@@ -42,17 +43,9 @@ export class AutoNotificationService {
     return this.tenantContext.getCurrentUserId() || '';
   }
 
-  private inc(name: string) {
-    this.counters.set(name, (this.counters.get(name) || 0) + 1);
-  }
 
-  getPrometheusText(): string {
-    const lines: string[] = [];
-    for (const [k, v] of this.counters.entries()) {
-      lines.push(`# TYPE ${k} counter`);
-      lines.push(`${k} ${v}`);
-    }
-    return lines.join('\n') + '\n';
+  async getPrometheusText(): Promise<string> {
+    return this.metricsService.text();
   }
 
   private render(template: string, vars: Record<string, string | number> = {}): string {
@@ -86,12 +79,12 @@ export class AutoNotificationService {
         await this.deliver(saved);
         saved.status = DeliveryStatus.SENT;
         saved.sentAt = new Date();
-        this.inc('auto_notifications_sent_total');
+        this.metricsService.inc('auto_notifications_sent_total');
       } catch (err: any) {
         saved.status = DeliveryStatus.FAILED;
         saved.errorMessage = err.message;
         saved.attemptCount += 1;
-        this.inc('auto_notifications_failed_total');
+        this.metricsService.inc('auto_notifications_failed_total');
         this.logger.warn(`Delivery failed: ${err.message}`);
       }
 

@@ -1,3 +1,4 @@
+import { MetricsService } from '../../common/metrics/metrics.service';
 import { Injectable, Logger, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -12,7 +13,6 @@ import { AuditAction } from '../audit/enums/audit-action.enum';
 @Injectable()
 export class AutoInvoiceService {
   private readonly logger = new Logger(AutoInvoiceService.name);
-  private readonly counters = new Map<string, number>();
 
   constructor(
     @InjectRepository(AutoInvoice)
@@ -21,6 +21,7 @@ export class AutoInvoiceService {
     private readonly items: Repository<AutoInvoiceItem>,
     private readonly tenantContext: TenantContextService,
     private readonly audit: AuditService,
+    private readonly metricsService: MetricsService,
   ) {}
 
   private getTenantId(): string {
@@ -33,17 +34,9 @@ export class AutoInvoiceService {
     return this.tenantContext.getCurrentUserId() || '';
   }
 
-  private inc(name: string) {
-    this.counters.set(name, (this.counters.get(name) || 0) + 1);
-  }
 
-  getPrometheusText(): string {
-    const lines: string[] = [];
-    for (const [k, v] of this.counters.entries()) {
-      lines.push(`# TYPE ${k} counter`);
-      lines.push(`${k} ${v}`);
-    }
-    return lines.join('\n') + '\n';
+  async getPrometheusText(): Promise<string> {
+    return this.metricsService.text();
   }
 
   private nextNumber(): string {
@@ -102,12 +95,12 @@ export class AutoInvoiceService {
       saved.status = AutoInvoiceStatus.GENERATED;
       await this.invoices.save(saved);
 
-      this.inc('auto_invoices_generated_total');
+      this.metricsService.inc('auto_invoices_generated_total');
     } catch (err: any) {
       saved.status = AutoInvoiceStatus.FAILED;
       saved.errorMessage = err.message;
       await this.invoices.save(saved);
-      this.inc('auto_invoices_failed_total');
+      this.metricsService.inc('auto_invoices_failed_total');
       this.logger.warn(`Auto invoice failed: ${err.message}`);
     }
 

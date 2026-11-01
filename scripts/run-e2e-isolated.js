@@ -124,7 +124,11 @@ async function main() {
     await client.query(`CREATE DATABASE "${E2E_DB}"`);
   });
 
-  const env = { DB_NAME: E2E_DB };
+  const env = {
+    DB_NAME: E2E_DB,
+    E2E_DB_NAME: E2E_DB,
+    E2E_ISOLATED: '1',
+  };
   let failed = false;
 
   try {

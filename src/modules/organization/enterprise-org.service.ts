@@ -15,6 +15,7 @@ import { TenantContextService } from '../../common/tenant-context/tenant-context
 import { AuditService } from '../audit/audit.service';
 import { AuditAction } from '../audit/enums/audit-action.enum';
 import { OrgMembershipRole, OrgUnitStatus } from './enums/enterprise-org.enum';
+import { MetricsService } from '../../common/metrics/metrics.service';
 import {
   AssignUserDto,
   CreateCostCenterDto,
@@ -32,7 +33,6 @@ import {
 @Injectable()
 export class EnterpriseOrgService {
   private readonly logger = new Logger(EnterpriseOrgService.name);
-  private readonly counters = new Map<string, number>();
 
   constructor(
     @InjectRepository(EnterpriseOrganization)
@@ -47,6 +47,7 @@ export class EnterpriseOrgService {
     private readonly memberships: Repository<OrgMembership>,
     private readonly tenantContext: TenantContextService,
     private readonly audit: AuditService,
+    private readonly metricsService: MetricsService,
   ) {}
 
   async createOrganization(dto: CreateEnterpriseOrgDto): Promise<EnterpriseOrganization> {
@@ -62,7 +63,7 @@ export class EnterpriseOrgService {
       }),
     );
     await this.auditSafe('enterprise_organization', saved.id, AuditAction.CREATE, { code: saved.code });
-    this.inc('org_units_created_total');
+    this.metricsService.inc('org_units_created_total');
     return saved;
   }
 
@@ -93,7 +94,7 @@ export class EnterpriseOrgService {
       }),
     );
     await this.auditSafe('enterprise_department', saved.id, AuditAction.CREATE, { code: saved.code });
-    this.inc('org_departments_created_total');
+    this.metricsService.inc('org_departments_created_total');
     return saved;
   }
 
@@ -118,7 +119,7 @@ export class EnterpriseOrgService {
       }),
     );
     await this.auditSafe('enterprise_team', saved.id, AuditAction.CREATE, { code: saved.code });
-    this.inc('org_teams_created_total');
+    this.metricsService.inc('org_teams_created_total');
     return saved;
   }
 
@@ -169,7 +170,7 @@ export class EnterpriseOrgService {
       }),
     );
     await this.auditSafe('org_membership', saved.id, AuditAction.CREATE, { userId: dto.userId, role: dto.role });
-    this.inc('org_memberships_created_total');
+    this.metricsService.inc('org_memberships_created_total');
     return saved;
   }
 
@@ -189,7 +190,7 @@ export class EnterpriseOrgService {
     row.updatedBy = this.userId();
     const saved = await this.memberships.save(row);
     await this.auditSafe('org_membership', saved.id, AuditAction.UPDATE, { before, after: dto });
-    this.inc('org_users_moved_total');
+    this.metricsService.inc('org_users_moved_total');
     return saved;
   }
 
@@ -213,7 +214,7 @@ export class EnterpriseOrgService {
     return saved;
   }
 
-  // ─── Update / deactivate (rename, move, status) ─────────────────
+  // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Update / deactivate (rename, move, status) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
   async updateOrganization(
     id: string,
@@ -243,7 +244,7 @@ export class EnterpriseOrgService {
       before,
       after: { name: saved.name, status: saved.status, parentId: saved.parentId },
     });
-    this.inc('org_units_updated_total');
+    this.metricsService.inc('org_units_updated_total');
     return saved;
   }
 
@@ -257,7 +258,7 @@ export class EnterpriseOrgService {
       before,
       after: { status: saved.status },
     });
-    this.inc('org_units_deactivated_total');
+    this.metricsService.inc('org_units_deactivated_total');
     return saved;
   }
 
@@ -306,7 +307,7 @@ export class EnterpriseOrgService {
         costCenterId: saved.costCenterId,
       },
     });
-    this.inc('org_units_updated_total');
+    this.metricsService.inc('org_units_updated_total');
     return saved;
   }
 
@@ -320,7 +321,7 @@ export class EnterpriseOrgService {
       before,
       after: { status: saved.status },
     });
-    this.inc('org_units_deactivated_total');
+    this.metricsService.inc('org_units_deactivated_total');
     return saved;
   }
 
@@ -370,7 +371,7 @@ export class EnterpriseOrgService {
         departmentId: saved.departmentId,
       },
     });
-    this.inc('org_units_updated_total');
+    this.metricsService.inc('org_units_updated_total');
     return saved;
   }
 
@@ -384,7 +385,7 @@ export class EnterpriseOrgService {
       before,
       after: { status: saved.status },
     });
-    this.inc('org_units_deactivated_total');
+    this.metricsService.inc('org_units_deactivated_total');
     return saved;
   }
 
@@ -418,7 +419,7 @@ export class EnterpriseOrgService {
       before,
       after: { name: saved.name, status: saved.status, departmentId: saved.departmentId },
     });
-    this.inc('org_units_updated_total');
+    this.metricsService.inc('org_units_updated_total');
     return saved;
   }
 
@@ -435,7 +436,7 @@ export class EnterpriseOrgService {
       before,
       after: { status: saved.status },
     });
-    this.inc('org_units_deactivated_total');
+    this.metricsService.inc('org_units_deactivated_total');
     return saved;
   }
 
@@ -496,13 +497,8 @@ export class EnterpriseOrgService {
     };
   }
 
-  metrics(): string {
-    const lines: string[] = [];
-    for (const [name, value] of this.counters.entries()) {
-      lines.push(`# TYPE ${name} counter`);
-      lines.push(`${name} ${value}`);
-    }
-    return lines.join('\n') + (lines.length ? '\n' : '');
+  async metrics(): Promise<string> {
+    return this.metricsService.text();
   }
 
   private buildOrgNode(
@@ -684,10 +680,6 @@ export class EnterpriseOrgService {
     } catch {
       return null;
     }
-  }
-
-  private inc(name: string) {
-    this.counters.set(name, (this.counters.get(name) ?? 0) + 1);
   }
 
   private async auditSafe(

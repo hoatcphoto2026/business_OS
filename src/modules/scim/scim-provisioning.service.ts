@@ -9,6 +9,7 @@ import {
 } from './enums/scim.enum';
 import { AuditAction } from '../audit/enums/audit-action.enum';
 import { AuditService } from '../audit/audit.service';
+import { MetricsService } from '../../common/metrics/metrics.service';
 import { scimError } from './scim.errors';
 import { ScimContext } from './scim.types';
 
@@ -37,12 +38,12 @@ const AUDIT_ACTION: Record<ScimOperation, AuditAction> = {
 @Injectable()
 export class ScimProvisioningService {
   private readonly logger = new Logger(ScimProvisioningService.name);
-  private readonly counters = new Map<string, number>();
 
   constructor(
     @InjectRepository(ScimProvisioningLog)
     private readonly logs: Repository<ScimProvisioningLog>,
     private readonly audit: AuditService,
+    private readonly metricsService: MetricsService,
   ) {}
 
   async track<T>(
@@ -63,7 +64,7 @@ export class ScimProvisioningService {
         createdBy: null,
       }),
     );
-    this.inc(`scim_provisioning_${options.operation.toLowerCase()}_total`);
+    this.metricsService.inc(`scim_provisioning_${options.operation.toLowerCase()}_total`);
     this.tagSpan(ctx, options.operation, options.resourceId ?? null);
 
     try {
@@ -82,7 +83,7 @@ export class ScimProvisioningService {
     log.completedAt = new Date();
     log.deadLetterAt = null;
     await this.logs.save(log);
-    this.inc('scim_provisioning_success_total');
+    this.metricsService.inc('scim_provisioning_success_total');
     await this.auditLog(log, AuditAction.UPDATE, { result: 'success' });
   }
 
@@ -95,9 +96,9 @@ export class ScimProvisioningService {
         : ScimProvisionStatus.FAILED;
     if (log.status === ScimProvisionStatus.DEAD) {
       log.deadLetterAt = new Date();
-      this.inc('scim_provisioning_dead_total');
+      this.metricsService.inc('scim_provisioning_dead_total');
     } else {
-      this.inc('scim_provisioning_failed_total');
+      this.metricsService.inc('scim_provisioning_failed_total');
     }
     await this.logs.save(log);
     this.logger.warn(
@@ -145,7 +146,7 @@ export class ScimProvisioningService {
     log.status = ScimProvisionStatus.RETRYING;
     log.error = null;
     const saved = await this.logs.save(log);
-    this.inc('scim_provisioning_retry_total');
+    this.metricsService.inc('scim_provisioning_retry_total');
     return saved;
   }
 
@@ -155,19 +156,9 @@ export class ScimProvisioningService {
     await this.logs.update({ id: logId }, { resourceId });
   }
 
-  metricsText(): string {
-    const lines: string[] = [];
-    for (const [name, value] of Array.from(this.counters.entries()).sort()) {
-      lines.push(`# TYPE ${name} counter`);
-      lines.push(`${name} ${value}`);
-    }
-    lines.push('# TYPE scim_provisioning_max_attempts gauge');
-    lines.push(`scim_provisioning_max_attempts ${SCIM_MAX_ATTEMPTS}`);
-    return `${lines.join('\n')}\n`;
-  }
-
-  inc(name: string): void {
-    this.counters.set(name, (this.counters.get(name) ?? 0) + 1);
+  async metricsText(): Promise<string> {
+    this.metricsService.set('scim_provisioning_max_attempts', SCIM_MAX_ATTEMPTS);
+    return this.metricsService.text();
   }
 
   private tagSpan(

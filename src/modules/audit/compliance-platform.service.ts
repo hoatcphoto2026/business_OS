@@ -1,3 +1,4 @@
+import { MetricsService } from '../../common/metrics/metrics.service';
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -34,7 +35,6 @@ const PRESETS: Array<{ code: RetentionPolicyCode; label: string; days: number | 
 @Injectable()
 export class CompliancePlatformService {
   private readonly logger = new Logger(CompliancePlatformService.name);
-  private readonly counters = new Map<string, number>();
 
   constructor(
     @InjectRepository(AuditEvent)
@@ -48,6 +48,7 @@ export class CompliancePlatformService {
     @InjectRepository(User)
     private readonly users: Repository<User>,
     private readonly tenantContext: TenantContextService,
+    private readonly metricsService: MetricsService,
   ) {}
 
   async mirror(log: AuditLog, traceId?: string | null): Promise<void> {
@@ -69,7 +70,7 @@ export class CompliancePlatformService {
       traceId: traceId ?? null,
     });
     const saved = await this.events.save(event);
-    this.inc('audit_events_recorded_total');
+    this.metricsService.inc('audit_events_recorded_total');
     this.tagSpan(saved.eventId, saved.category);
   }
 
@@ -92,7 +93,7 @@ export class CompliancePlatformService {
         requestedBy: this.safeUserId(),
       }),
     );
-    this.inc('audit_exports_total');
+    this.metricsService.inc('audit_exports_total');
 
     if (query.format === AuditExportFormat.CSV) {
       return { body: toCsv(rows), contentType: 'text/csv; charset=utf-8', filename: 'audit-events.csv' };
@@ -126,7 +127,7 @@ export class CompliancePlatformService {
         generatedBy: this.safeUserId(),
       }),
     );
-    this.inc('audit_reports_total');
+    this.metricsService.inc('audit_reports_total');
     return {
       id: saved.id,
       reportType: query.type,
@@ -153,13 +154,8 @@ export class CompliancePlatformService {
     return { policies };
   }
 
-  metrics(): string {
-    const lines: string[] = [];
-    for (const [name, value] of this.counters.entries()) {
-      lines.push(`# TYPE ${name} counter`);
-      lines.push(`${name} ${value}`);
-    }
-    return lines.join('\n') + (lines.length ? '\n' : '');
+  async metrics(): Promise<string> {
+    return this.metricsService.text();
   }
 
   @Cron(CronExpression.EVERY_DAY_AT_3AM)
@@ -249,9 +245,6 @@ export class CompliancePlatformService {
     }
   }
 
-  private inc(name: string) {
-    this.counters.set(name, (this.counters.get(name) ?? 0) + 1);
-  }
 
   private tagSpan(eventId: string, category: string) {
     try {

@@ -20,6 +20,7 @@ import { DemoModule } from './modules/demo/demo.module';
 import { TenantMiddleware } from './common/middleware/tenant.middleware';
 import { TraceMiddleware } from './common/middleware/trace.middleware';
 import { TenantContextModule } from './common/tenant-context/tenant-context.module';
+import { MetricsModule } from './common/metrics/metrics.module';
 import { TenantAuditInterceptor } from './common/filters/tenant-global.filter';
 import { TenantContextInterceptor } from './common/interceptors/tenant-context.interceptor';
 import { Tenant } from './modules/tenant/entities/tenant.entity';
@@ -169,6 +170,7 @@ import { PaymentTransaction } from './modules/billing/entities/payment-transacti
     }),
     ScheduleModule.forRoot(),
     TenantContextModule,
+    MetricsModule,
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

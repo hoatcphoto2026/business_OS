@@ -5,6 +5,7 @@ import { IdentityMapping } from './entities/identity-mapping.entity';
 import { SSOSession } from './entities/sso-session.entity';
 import { IdentityService } from './identity.service';
 import { IdentityController } from './identity.controller';
+import { SsoSessionCleanupJob } from './jobs/sso-session-cleanup.job';
 import { User } from '../users/entities/user.entity';
 import { Tenant } from '../tenant/entities/tenant.entity';
 import { TenantUser } from '../tenant/entities/tenant-user.entity';
@@ -33,7 +34,7 @@ import { TenantModule } from '../tenant/tenant.module';
     TenantModule,
   ],
   controllers: [IdentityController],
-  providers: [IdentityService],
-  exports: [IdentityService],
+  providers: [IdentityService, SsoSessionCleanupJob],
+  exports: [IdentityService, SsoSessionCleanupJob],
 })
 export class IdentityModule {}

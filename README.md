@@ -662,7 +662,7 @@ they never delete their rows. Two helpers keep the database predictable.
 ### 0. One command (dùng trước khi tạo PR)
 
 ```bash
-npm run verify        # lint → build → unit → full e2e trên DB tạm (43 suites / 186 tests)
+npm run verify        # lint → build → unit → full e2e trên DB tạm (43 suites / 189 tests)
 npm run verify:fast   # lint + build + unit (khi sửa nhỏ)
 ```
 
@@ -677,6 +677,10 @@ npm run test:e2e:isolated -- --keep       # keep the DB for debugging (psql -d b
 The runner refuses to run if `E2E_DB_NAME` equals `DB_NAME`, so the dev
 database can never be dropped by accident. Override the target with
 `E2E_DB_NAME` / `E2E_MAINTENANCE_DB`.
+
+`test/setup-e2e.ts` additionally forces `process.env.DB_NAME` to the E2E database
+whenever `E2E_ISOLATED=1` (set by the runner), so a leaked `DB_NAME` from the shell
+can never make e2e write into the application database.
 
 ### 2. Purge test data from the current database
 
@@ -706,7 +710,7 @@ Demo subscription/plan baseline is restored by `npm run seed`
 ```
 npm ci → npm run lint:check → npm run build → npm test -- --runInBand
        → npm run migration:run → npm run seed
-       → npm run test:e2e -- --runInBand   # FULL suite (43 suites / 186 tests)
+       → npm run test:e2e -- --runInBand   # FULL suite (43 suites / 189 tests)
 ```
 
 ### 4. Production hardening (đã bật)

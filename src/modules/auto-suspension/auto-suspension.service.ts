@@ -1,3 +1,4 @@
+import { MetricsService } from '../../common/metrics/metrics.service';
 import { Injectable, Logger, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -16,7 +17,6 @@ import { NotificationService } from '../notification/notification.service';
 @Injectable()
 export class AutoSuspensionService {
   private readonly logger = new Logger(AutoSuspensionService.name);
-  private readonly counters = new Map<string, number>();
 
   constructor(
     @InjectRepository(SuspensionRecord)
@@ -30,6 +30,7 @@ export class AutoSuspensionService {
     private readonly tenantContext: TenantContextService,
     private readonly audit: AuditService,
     private readonly notifications: NotificationService,
+    private readonly metricsService: MetricsService,
   ) {}
 
   private getTenantId(): string {
@@ -42,17 +43,9 @@ export class AutoSuspensionService {
     return this.tenantContext.getCurrentUserId() || '';
   }
 
-  private inc(name: string) {
-    this.counters.set(name, (this.counters.get(name) || 0) + 1);
-  }
 
-  getPrometheusText(): string {
-    const lines: string[] = [];
-    for (const [k, v] of this.counters.entries()) {
-      lines.push(`# TYPE ${k} counter`);
-      lines.push(`${k} ${v}`);
-    }
-    return lines.join('\n') + '\n';
+  async getPrometheusText(): Promise<string> {
+    return this.metricsService.text();
   }
 
   async trigger(dto: TriggerSuspensionDto): Promise<SuspensionRecord> {
@@ -70,13 +63,13 @@ export class AutoSuspensionService {
 
     try {
       await this.execute(saved, userId);
-      this.inc('suspensions_completed_total');
+      this.metricsService.inc('suspensions_completed_total');
     } catch (err: any) {
       saved.status = SuspensionStatus.FAILED;
       saved.errorMessage = err.message;
       saved.attemptCount += 1;
       await this.records.save(saved);
-      this.inc('suspensions_failed_total');
+      this.metricsService.inc('suspensions_failed_total');
       this.logger.warn(`Suspension failed: ${err.message}`);
     }
 
@@ -212,7 +205,7 @@ export class AutoSuspensionService {
       });
     } catch {}
 
-    this.inc('suspensions_reactivated_total');
+    this.metricsService.inc('suspensions_reactivated_total');
     return { ok: true, tenantId };
   }
 

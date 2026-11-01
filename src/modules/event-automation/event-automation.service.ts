@@ -1,3 +1,4 @@
+import { MetricsService } from '../../common/metrics/metrics.service';
 import { Injectable, Logger, OnModuleInit, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -24,7 +25,6 @@ const SUPPORTED_EVENTS: EventType[] = [
 @Injectable()
 export class EventAutomationService implements OnModuleInit {
   private readonly logger = new Logger(EventAutomationService.name);
-  private readonly counters = new Map<string, number>();
 
   constructor(
     @InjectRepository(EventAutomationLog)
@@ -33,6 +33,7 @@ export class EventAutomationService implements OnModuleInit {
     private readonly tenantContext: TenantContextService,
     private readonly audit: AuditService,
     private readonly notifications: NotificationService,
+    private readonly metricsService: MetricsService,
   ) {}
 
   onModuleInit() {
@@ -48,17 +49,9 @@ export class EventAutomationService implements OnModuleInit {
     return tid;
   }
 
-  private inc(name: string) {
-    this.counters.set(name, (this.counters.get(name) || 0) + 1);
-  }
 
-  getPrometheusText(): string {
-    const lines: string[] = [];
-    for (const [k, v] of this.counters.entries()) {
-      lines.push(`# TYPE ${k} counter`);
-      lines.push(`${k} ${v}`);
-    }
-    return lines.join('\n') + '\n';
+  async getPrometheusText(): Promise<string> {
+    return this.metricsService.text();
   }
 
   /**
@@ -90,16 +83,16 @@ export class EventAutomationService implements OnModuleInit {
       log.status = AutomationStatus.COMPLETED;
       log.processedAt = new Date();
       log.lastError = null;
-      this.inc('event_automation_completed_total');
+      this.metricsService.inc('event_automation_completed_total');
     } catch (err: any) {
       log.lastError = err.message || String(err);
       if (log.attemptCount >= log.maxRetries) {
         log.status = AutomationStatus.DEAD_LETTER;
-        this.inc('event_automation_dead_letter_total');
+        this.metricsService.inc('event_automation_dead_letter_total');
         this.logger.warn(`Event ${event.eventId} moved to DLQ after ${log.attemptCount} attempts`);
       } else {
         log.status = AutomationStatus.FAILED;
-        this.inc('event_automation_failed_total');
+        this.metricsService.inc('event_automation_failed_total');
       }
     }
 

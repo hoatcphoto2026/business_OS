@@ -1,3 +1,4 @@
+import { MetricsService } from '../../common/metrics/metrics.service';
 import { Injectable, Logger, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -12,7 +13,6 @@ import { AuditAction } from '../audit/enums/audit-action.enum';
 @Injectable()
 export class ScheduledJobsService {
   private readonly logger = new Logger(ScheduledJobsService.name);
-  private readonly counters = new Map<string, number>();
 
   constructor(
     @InjectRepository(ScheduledJob)
@@ -21,6 +21,7 @@ export class ScheduledJobsService {
     private readonly histories: Repository<JobExecutionHistory>,
     private readonly tenantContext: TenantContextService,
     private readonly audit: AuditService,
+    private readonly metricsService: MetricsService,
   ) {}
 
   private getTenantId(): string {
@@ -33,17 +34,9 @@ export class ScheduledJobsService {
     return this.tenantContext.getCurrentUserId() || '';
   }
 
-  private inc(name: string) {
-    this.counters.set(name, (this.counters.get(name) || 0) + 1);
-  }
 
-  getPrometheusText(): string {
-    const lines: string[] = [];
-    for (const [k, v] of this.counters.entries()) {
-      lines.push(`# TYPE ${k} counter`);
-      lines.push(`${k} ${v}`);
-    }
-    return lines.join('\n') + '\n';
+  async getPrometheusText(): Promise<string> {
+    return this.metricsService.text();
   }
 
   async create(dto: CreateScheduledJobDto): Promise<ScheduledJob> {
@@ -72,7 +65,7 @@ export class ScheduledJobsService {
       this.logger.warn('Audit skipped on job create');
     }
 
-    this.inc('scheduled_jobs_created_total');
+    this.metricsService.inc('scheduled_jobs_created_total');
     return saved;
   }
 
@@ -112,12 +105,12 @@ export class ScheduledJobsService {
       saved.status = JobExecutionStatus.COMPLETED;
       saved.completedAt = new Date();
       saved.result = result;
-      this.inc('job_executions_completed_total');
+      this.metricsService.inc('job_executions_completed_total');
     } catch (err: any) {
       saved.status = JobExecutionStatus.FAILED;
       saved.errorMessage = err.message || String(err);
       saved.retryCount += 1;
-      this.inc('job_executions_failed_total');
+      this.metricsService.inc('job_executions_failed_total');
       this.logger.warn(`Job ${job.name} failed: ${err.message}`);
     }
 
@@ -186,12 +179,12 @@ export class ScheduledJobsService {
       saved.status = JobExecutionStatus.COMPLETED;
       saved.completedAt = new Date();
       saved.result = result;
-      this.inc('job_executions_completed_total');
+      this.metricsService.inc('job_executions_completed_total');
     } catch (err: any) {
       saved.status = JobExecutionStatus.FAILED;
       saved.errorMessage = err.message || String(err);
       saved.retryCount += 1;
-      this.inc('job_executions_failed_total');
+      this.metricsService.inc('job_executions_failed_total');
     }
 
     await this.histories.save(saved);

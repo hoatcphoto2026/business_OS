@@ -34,5 +34,7 @@ export const SCIM_GROUP_EXT = 'urn:ietf:params:scim:schemas:extension:businessos
 export const SCIM_LIST = 'urn:ietf:params:scim:api:messages:2.0:ListResponse';
 export const SCIM_PATCH = 'urn:ietf:params:scim:api:messages:2.0:PatchOp';
 export const SCIM_ERROR = 'urn:ietf:params:scim:api:messages:2.0:Error';
+export const SCIM_BULK_REQUEST = 'urn:ietf:params:scim:api:messages:2.0:BulkRequest';
+export const SCIM_BULK_RESPONSE = 'urn:ietf:params:scim:api:messages:2.0:BulkResponse';
 export const SCIM_SP_CONFIG = 'urn:ietf:params:scim:schemas:core:2.0:ServiceProviderConfig';
 export const SCIM_MAX_ATTEMPTS = 3;

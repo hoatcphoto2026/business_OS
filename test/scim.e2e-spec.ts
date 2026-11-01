@@ -114,6 +114,8 @@ describe('SCIM 2.0 provisioning (e2e)', () => {
       .expect(200);
     expect(config.body.patch.supported).toBe(true);
     expect(config.body.filter.maxResults).toBe(200);
+    expect(config.body.bulk.supported).toBe(true);
+    expect(config.body.sort.supported).toBe(true);
 
     const types = await request(app.getHttpServer())
       .get('/scim/v2/ResourceTypes')
@@ -438,6 +440,104 @@ describe('SCIM 2.0 provisioning (e2e)', () => {
     expect(
       endpoints.body.every((row: { token?: string }) => row.token === undefined),
     ).toBe(true);
+  });
+
+  it('sorts user lists with sortBy and sortOrder', async () => {
+    const prefix = `sort-${stamp}`;
+    const emailA = `${prefix}-a@example.com`;
+    const emailB = `${prefix}-b@example.com`;
+    const emailC = `${prefix}-c@example.com`;
+    await createUser(emailA);
+    await createUser(emailB);
+    await createUser(emailC);
+
+    const ascending = await request(app.getHttpServer())
+      .get('/scim/v2/Users')
+      .query({ sortBy: 'userName', sortOrder: 'ascending' })
+      .set(auth())
+      .expect(200);
+    const ascNames = ascending.body.Resources.map(
+      (row: { userName: string }) => row.userName,
+    );
+    expect(ascNames.indexOf(emailA)).toBeLessThan(ascNames.indexOf(emailB));
+    expect(ascNames.indexOf(emailB)).toBeLessThan(ascNames.indexOf(emailC));
+
+    const descending = await request(app.getHttpServer())
+      .get('/scim/v2/Users')
+      .query({ sortBy: 'userName', sortOrder: 'descending' })
+      .set(auth())
+      .expect(200);
+    const descNames = descending.body.Resources.map(
+      (row: { userName: string }) => row.userName,
+    );
+    expect(descNames.indexOf(emailC)).toBeLessThan(descNames.indexOf(emailA));
+
+    await request(app.getHttpServer())
+      .get('/scim/v2/Users')
+      .query({ sortBy: 'unknown' })
+      .set(auth())
+      .expect(400);
+  });
+
+  it('processes SCIM bulk operations with per-operation status', async () => {
+    const bulk = await request(app.getHttpServer())
+      .post('/scim/v2/Bulk')
+      .set(auth())
+      .send({
+        schemas: ['urn:ietf:params:scim:api:messages:2.0:BulkRequest'],
+        Operations: [
+          {
+            method: 'POST',
+            path: '/Users',
+            bulkId: 'u1',
+            data: {
+              schemas: [SCIM_USER_SCHEMA],
+              userName: `bulk-1-${stamp}@example.com`,
+              name: { formatted: 'Bulk One' },
+            },
+          },
+          {
+            method: 'POST',
+            path: '/Users',
+            bulkId: 'u2',
+            data: {
+              schemas: [SCIM_USER_SCHEMA],
+              userName: `bulk-2-${stamp}@example.com`,
+              name: { formatted: 'Bulk Two' },
+            },
+          },
+          { method: 'POST', path: '/Unknown', bulkId: 'bad', data: {} },
+        ],
+      })
+      .expect(200);
+
+    expect(bulk.body.schemas).toEqual([
+      'urn:ietf:params:scim:api:messages:2.0:BulkResponse',
+    ]);
+    const operations = bulk.body.Operations as Array<{
+      status: number;
+      response?: { id: string };
+    }>;
+    expect(operations).toHaveLength(3);
+    expect(operations[0].status).toBe(201);
+    expect(operations[1].status).toBe(201);
+    expect(operations[2].status).toBe(400);
+
+    const createdId = operations[0].response?.id as string;
+    const deleted = await request(app.getHttpServer())
+      .post('/scim/v2/Bulk')
+      .set(auth())
+      .send({
+        schemas: ['urn:ietf:params:scim:api:messages:2.0:BulkRequest'],
+        Operations: [{ method: 'DELETE', path: `/Users/${createdId}` }],
+      })
+      .expect(200);
+    expect(deleted.body.Operations[0].status).toBe(204);
+
+    await request(app.getHttpServer())
+      .get(`/scim/v2/Users/${createdId}`)
+      .set(auth())
+      .expect(404);
   });
 });
 
