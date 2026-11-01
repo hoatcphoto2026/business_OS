@@ -483,6 +483,57 @@ idempotent monthly/daily snapshots + segments persistence, Prometheus gauges + a
 
 ---
 
+### D3 Customer Health Platform
+
+**Entities:** `customer_health_scores` (latest score per customer tenant: 0–100 score, level, previous
+score/trend, 7 signal breakdowns, risk drivers, primary risk, churn flag), `health_signals` (weighted
+signal catalog, seeded for the operator tenant), `health_snapshots` (daily per-tenant score history,
+unique per tenant+day).
+
+**Signals (weights sum 100):**
+
+| Signal | Weight | 0–100 points from |
+|---|---|---|
+| `LOGIN_FREQUENCY` | 15 | logins in the last 30 days |
+| `ACTIVE_USERS` | 15 | distinct active users / active memberships |
+| `USAGE_TREND` | 15 | usage quantity vs the previous 30 days |
+| `SUPPORT_TICKETS` | 15 | open / in-progress / waiting tickets |
+| `FAILED_PAYMENTS` | 15 | FAILED / CHARGEBACK payments in the last 30 days |
+| `RENEWAL_SUCCESS` | 10 | latest subscription status (ACTIVE 100 … CANCELLED 0) |
+| `SECURITY_EVENTS` | 15 | unresolved HIGH/CRITICAL security events in the last 30 days |
+
+**Levels:** `HEALTHY ≥ 80`, `WARNING ≥ 60`, `AT_RISK ≥ 40`, `CRITICAL < 40`. Trend is the delta vs the
+previous stored score (`UP` / `DOWN` / `STABLE`). Risk drivers are signals scoring below 60; a tenant is a
+**churn candidate** when it is AT_RISK/CRITICAL, has failed payments, or renewal points ≤ 40.
+
+**APIs (JWT + `admin.access` + platform operator):**
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/customer-health` | health dashboard: totals, distribution, tenants, at-risk, churn candidates |
+| GET | `/customer-health/at-risk?churnOnly=&limit=` | at-risk tenants sorted by score |
+| GET | `/customer-health/tenant/:id` | score detail + risk drivers + 90-day history |
+| GET | `/customer-health/trends?tenantId=&days=` | daily score series |
+| GET | `/customer-health/signals` | signal catalog + weights |
+| POST | `/customer-health/snapshots` | score every tenant, persist latest + daily history |
+| GET | `/customer-health/metrics` | Prometheus gauges |
+| GET | `/health/dashboard` · `/health/at-risk` · `/health/tenant/:id` | aliases (see note) |
+
+> **Route note:** the requested `GET /health` is already the **public liveness probe** (guardrail §1.7),
+> so the dashboard is served at `/customer-health` (alias `/health/dashboard`) while `/health/at-risk` and
+> `/health/tenant/:id` are provided as requested without colliding with `/health` / `/health/ready`.
+
+**Features:** health dashboard with distribution + averages, at-risk ranking with risk drivers and reasons,
+churn candidates, daily trending score (`HealthSnapshotJob` 02:15), risk detection from seven signals,
+Prometheus gauges (`customer_health_avg_score`, `customer_health_*_tenants`, `customer_health_churn_candidates`),
+audit (`entity_type = customer_health_snapshot`) and `customer_health_snapshots_total` counter.
+
+**Tests:** `customer-health` (8) — operator gate + probes untouched, dashboard distribution, at-risk +
+churn filter with risk drivers, tenant detail (healthy vs at-risk), weighted signal catalog, idempotent
+daily snapshots + history, `/health/*` aliases, Prometheus gauges + audit.
+
+---
+
 ### Shared Prometheus registry (observability)
 
 Every module now increments **one** `prom-client` registry (`src/common/metrics/metrics.service.ts`)

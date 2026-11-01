@@ -11,6 +11,7 @@ import { seedSecurityAlertRules } from './security.seeder';
 import { seedReportSchedules } from './reporting.seeder';
 import { seedExecutiveMetrics } from './executive.seeder';
 import { seedRevenueSnapshot } from './revenue.seeder';
+import { seedHealthSignals } from './health.seeder';
 import { seedMasterDataDefaults } from '../../modules/master-data/master-data.seeder';
 import { Tenant } from '../../modules/tenant/entities/tenant.entity';
 
@@ -64,6 +65,7 @@ async function run() {
     await seedReportSchedules(dataSource);
     await seedExecutiveMetrics(dataSource);
     await seedRevenueSnapshot(dataSource);
+    await seedHealthSignals(dataSource);
   } finally {
     await dataSource.destroy();
   }

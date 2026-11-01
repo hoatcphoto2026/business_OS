@@ -124,11 +124,19 @@ Thêm bảng/feature mới ⇒ cập nhật seeder tương ứng, đừng để 
 - Snapshot refresh theo `(tenant, snapshot_date, period)`; segment unique
   `(tenant, dimension, segment_key, period)`; forecast unique `(tenant, horizon, as_of)`.
 
+### 1.13 Customer health (D3)
+- `/health` + `/health/ready` là **public probes** (guardrail §1.7) — KHÔNG đổi. Dashboard D3 ở
+  `/customer-health`; alias không trùng đặt tại `/health/dashboard`, `/health/at-risk`, `/health/tenant/:id`.
+- Scoring platform-wide → operator allowlist (`PLATFORM_ADMIN_EMAILS`); scores/snapshots lưu dưới tenant operator.
+- 7 tín hiệu có trọng số tổng = 100 (`health_signals` seed cho ABC); sửa weight ⇒ cập nhật seeder.
+- `health_snapshots` unique `(tenant, target_tenant_id, snapshot_date)`; chạy lại trong ngày không nhân đôi điểm.
+- Audit snapshot phải dùng `entity_id` thật (AuditService bỏ qua khi id null).
+
 ---
 
 ## 2. Definition of Done — verify trước khi báo "xong"
 
-- [ ] `npm run verify` → lint + build + unit + e2e isolated (baseline hiện tại: **48 suites / 237 tests PASS**)
+- [ ] `npm run verify` → lint + build + unit + e2e isolated (baseline hiện tại: **49 suites / 245 tests PASS**)
 - [ ] Sửa nhỏ thì chạy nhanh `npm run verify:fast` (lint + build + unit)
 - [ ] Muốn xem warning của lint: `npm run lint:check` (CI fail khi có **error**, warning không chặn)
 - [ ] Nếu chạm auth / guard / billing / seed: chạy lại với `NODE_ENV=test` (parity CI)

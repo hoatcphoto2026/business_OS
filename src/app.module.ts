@@ -98,6 +98,10 @@ import { RevenueModule } from './modules/revenue/revenue.module';
 import { RevenueSnapshot } from './modules/revenue/entities/revenue-snapshot.entity';
 import { RevenueForecast } from './modules/revenue/entities/revenue-forecast.entity';
 import { RevenueSegment } from './modules/revenue/entities/revenue-segment.entity';
+import { CustomerHealthModule } from './modules/customer-health/customer-health.module';
+import { CustomerHealthScore } from './modules/customer-health/entities/customer-health-score.entity';
+import { HealthSignal } from './modules/customer-health/entities/health-signal.entity';
+import { HealthSnapshot } from './modules/customer-health/entities/health-snapshot.entity';
 import { IdentityProvider } from './modules/identity/entities/identity-provider.entity';
 import { IdentityMapping } from './modules/identity/entities/identity-mapping.entity';
 import { SSOSession } from './modules/identity/entities/sso-session.entity';
@@ -244,6 +248,9 @@ import { PaymentTransaction } from './modules/billing/entities/payment-transacti
           RevenueSnapshot,
           RevenueForecast,
           RevenueSegment,
+          CustomerHealthScore,
+          HealthSignal,
+          HealthSnapshot,
           UserCompany,
           UserBranch,
           UserDepartment,
@@ -371,6 +378,7 @@ import { PaymentTransaction } from './modules/billing/entities/payment-transacti
     ReportingModule,
     ExecutiveModule,
     RevenueModule,
+    CustomerHealthModule,
     ...(process.env.NODE_ENV !== 'production' ? [DemoModule] : []),
   ],
   providers: [
