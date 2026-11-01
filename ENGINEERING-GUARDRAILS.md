@@ -93,11 +93,22 @@ Thêm bảng/feature mới ⇒ cập nhật seeder tương ứng, đừng để 
 - Alert rules mặc định seed cho `ABC` + `CAFE_MOC` (`src/database/seeds/security.seeder.ts`).
   Thêm event type mới ⇒ cập nhật seeder, đừng để e2e tự tạo nền.
 
+### 1.10 Reporting (C7)
+- CSV/Excel/PDF dùng **chung** `src/common/reports/tabular-export.ts`
+  (`compliance-export.format.ts` chỉ re-export) — không copy thêm exporter.
+- Report SQL luôn pin `tenant_id`; JSON/CSV/Excel/PDF đều đi qua cùng `generate()`
+  + cùng period để số liệu khớp nhau.
+- Delivery semantics: `IN_APP` = notification row thật; `EMAIL` = notification channel email
+  (mock transport như EPIC A/B); `WEBHOOK` = `integration_logs` + `assertSafeWebhookUrl`.
+  Mọi attempt phải ghi `report_deliveries` (`SENT` / `FAILED` / `SKIPPED`).
+- Schedules: `next_run_at` tính khi create/update/run; worker 5 phút chỉ chạy row đã due.
+  Seed 2 schedule/tenant (`src/database/seeds/reporting.seeder.ts`).
+
 ---
 
 ## 2. Definition of Done — verify trước khi báo "xong"
 
-- [ ] `npm run verify` → lint + build + unit + e2e isolated (baseline hiện tại: **45 suites / 210 tests PASS**)
+- [ ] `npm run verify` → lint + build + unit + e2e isolated (baseline hiện tại: **46 suites / 222 tests PASS**)
 - [ ] Sửa nhỏ thì chạy nhanh `npm run verify:fast` (lint + build + unit)
 - [ ] Muốn xem warning của lint: `npm run lint:check` (CI fail khi có **error**, warning không chặn)
 - [ ] Nếu chạm auth / guard / billing / seed: chạy lại với `NODE_ENV=test` (parity CI)

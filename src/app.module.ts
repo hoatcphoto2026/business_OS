@@ -86,6 +86,10 @@ import { LoginLocation } from './modules/security/entities/login-location.entity
 import { AlertRule } from './modules/security/entities/alert-rule.entity';
 import { SecretRotation } from './modules/security/entities/secret-rotation.entity';
 import { EmergencyAccess } from './modules/security/entities/emergency-access.entity';
+import { ReportingModule } from './modules/reporting/reporting.module';
+import { ReportRun } from './modules/reporting/entities/report-run.entity';
+import { ReportSchedule } from './modules/reporting/entities/report-schedule.entity';
+import { ReportDelivery } from './modules/reporting/entities/report-delivery.entity';
 import { IdentityProvider } from './modules/identity/entities/identity-provider.entity';
 import { IdentityMapping } from './modules/identity/entities/identity-mapping.entity';
 import { SSOSession } from './modules/identity/entities/sso-session.entity';
@@ -223,6 +227,9 @@ import { PaymentTransaction } from './modules/billing/entities/payment-transacti
           AlertRule,
           SecretRotation,
           EmergencyAccess,
+          ReportRun,
+          ReportSchedule,
+          ReportDelivery,
           UserCompany,
           UserBranch,
           UserDepartment,
@@ -347,6 +354,7 @@ import { PaymentTransaction } from './modules/billing/entities/payment-transacti
     ScimModule,
     ComplianceModule,
     SecurityModule,
+    ReportingModule,
     ...(process.env.NODE_ENV !== 'production' ? [DemoModule] : []),
   ],
   providers: [

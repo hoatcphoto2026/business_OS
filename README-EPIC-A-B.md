@@ -333,6 +333,59 @@ threat monitoring + metrics + login signals, tenant isolation.
 
 ---
 
+### C7 Enterprise Reporting
+
+**Entities:** `report_runs` (type, format, period, status, row count, summary, schedule id),
+`report_schedules` (type/format/frequency, delivery channels, recipients, webhook ids, next/last run),
+`report_deliveries` (run id, channel, target, status, error, delivered at, metadata).
+
+**Reports (7):**
+
+| Type | Contents | Columns |
+|---|---|---|
+| `TENANT_ACTIVITY` | audit events, active members, logins, top actions | action, events |
+| `DEPARTMENT_ACTIVITY` | headcount + audit events per enterprise department | code, name, members, events |
+| `BILLING` | subscription state + invoice totals by status | status, invoices, totalAmount, paidAmount |
+| `REVENUE` | paid invoices by month + payment provider mix | month, invoices, revenue |
+| `USAGE` | usage quantities per metric | metric, quantity, records |
+| `SECURITY` | security events by type/severity + failed logins/alert triggers | eventType, severity, events, openEvents |
+| `AUTOMATION` | workflow instances, scheduled jobs, job executions | category, name, count |
+
+**APIs (JWT + `admin.access`, Swagger documented):**
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/reports/catalog` | 7 definitions + export columns |
+| GET | `/reports/:type?from=&to=` | JSON report (period defaults to last 30 days) |
+| GET | `/reports/:type/export?format=CSV\|EXCEL\|PDF` | CSV / Excel / PDF download |
+| POST | `/reports/:type/run` | generate + persist run + deliver (`IN_APP`, `EMAIL`, `WEBHOOK`) |
+| GET | `/reports/runs` · `/reports/runs/:id` | history · detail with deliveries |
+| GET/POST | `/reports/schedules` | list · create daily/weekly/monthly schedule |
+| GET/PATCH | `/reports/schedules/:id` | detail · change frequency/format/targets |
+| POST | `/reports/schedules/:id/run` | run immediately (also used by the worker) |
+| GET | `/reports/metrics` | Prometheus text |
+
+**Scheduling:** `next_run_at` is computed on create/update/run (`DAILY +1d`, `WEEKLY +7d`,
+`MONTHLY +1 month`); `ReportingSchedulerJob` runs every 5 minutes and only executes due rows.
+Manual runs use the frequency look-back window (1/7/30 days).
+
+**Delivery:** `IN_APP` writes a real notification row; `EMAIL` writes the platform email-channel
+notification (mock transport, same as EPIC A/B); `WEBHOOK` writes an outbound `integration_logs`
+entry per webhook behind `assertSafeWebhookUrl` (SSRF guard). Each attempt is persisted in
+`report_deliveries` with `SENT` / `FAILED` / `SKIPPED`.
+
+**Audit & metrics:** every run/schedule change writes `audit_logs` (`entity_type = report`);
+Prometheus counters `report_runs_total{type,status}`, `report_exports_total{type,format}`,
+`report_deliveries_total{channel,status}`, `report_schedules_created_total{frequency}`,
+`report_schedule_runs_total{frequency}`. CSV/Excel/PDF writers are shared with C5 in
+`src/common/reports/tabular-export.ts`.
+
+**Tests:** `enterprise-reporting` (12) — authz, catalog, tenant/department activity, billing + revenue,
+usage/security/automation, unknown type 400, CSV/Excel/PDF export, run + 3 delivery channels,
+schedule create/update/run + next run, run history + metrics + audit, tenant isolation.
+
+---
+
 ### Shared Prometheus registry (observability)
 
 Every module now increments **one** `prom-client` registry (`src/common/metrics/metrics.service.ts`)
