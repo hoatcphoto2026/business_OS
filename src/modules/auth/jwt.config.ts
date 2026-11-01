@@ -26,6 +26,8 @@ function normalizePem(value: string): string {
   return Buffer.from(value, 'base64').toString('utf8').trim();
 }
 
+type SignExpiresIn = NonNullable<JwtModuleOptions['signOptions']>['expiresIn'];
+
 /**
  * Single source of truth for JWT signing/verification.
  *
@@ -40,7 +42,7 @@ export function resolveJwtConfig(
   env: EnvLike = process.env,
 ): ResolvedJwtConfig {
   const isProd = env.NODE_ENV === 'production';
-  const expiresIn = read(config, env, 'JWT_EXPIRES_IN') || '8h';
+  const expiresIn = (read(config, env, 'JWT_EXPIRES_IN') || '8h') as SignExpiresIn;
   const requested = (read(config, env, 'JWT_ALGORITHM') || '').toUpperCase();
   const privateKey = read(config, env, 'JWT_PRIVATE_KEY');
   const publicKey = read(config, env, 'JWT_PUBLIC_KEY');

@@ -168,10 +168,14 @@ Thêm bảng/feature mới ⇒ cập nhật seeder tương ứng, đừng để 
 - Toàn bộ `/executive/*` vẫn qua `PlatformOperatorGuard` + `PLATFORM_ADMIN_EMAILS`; non-operator → 403.
 
 ### 1.17 Supply-chain & payload hardening
-- **Audit gate**: `npm run audit:gate` (chạy trong CI sau `npm ci`) đọc `npm audit --omit=dev --json`
-  và fail nếu có advisory **critical/high** chưa nằm trong `security/audit-allowlist.json`.
-  Mỗi entry bắt buộc có `owner`, `mitigation`, `expiresOn`; hết hạn ⇒ gate fail để buộc review lại.
-  Không được thêm entry chỉ để "cho xanh" — phải kèm biện pháp giảm thiểu thật.
+- **Audit gate**: `npm run audit:gate` (CI sau `npm ci`) đọc `npm audit --omit=dev --json` và fail nếu có
+  advisory **critical/high** chưa nằm trong `security/audit-allowlist.json`; entry phải có `owner`,
+  `mitigation`, `expiresOn` và hết hạn ⇒ fail. **Hiện trạng: 0 critical / 0 high** (9 moderate),
+  allowlist **rỗng** — không được thêm entry nếu chưa thật sự bị chặn bởi major upgrade.
+- **Dependency stack**: NestJS **11.2.x** (CommonJS) + Swagger **11.4.x** + OTel **sdk-node 0.300**
+  (auto-instrumentations 0.82) + `overrides: multer ^2.5.0, glob ^10.5.0`.
+  **Không nâng Nest 12**: từ 12.x package là pure ESM (`"type": "module"`, exports chỉ ESM) ⇒ muốn dùng
+  phải migrate toàn bộ app + seed/typeorm CLI sang ESM. Chỉ nâng khi có sprint ESM riêng.
 - `bcrypt` (native, kéo `tar` critical + `@mapbox/node-pre-gyp`) đã thay bằng `bcryptjs`;
   hash `$2b$` tương thích, seed/login không đổi hành vi.
 - **JWT**: production mặc định RS256 khi có `JWT_PRIVATE_KEY`/`JWT_PUBLIC_KEY`.
