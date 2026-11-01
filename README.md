@@ -732,7 +732,7 @@ npm ci → npm run audit:gate → npm run lint:check → npm run build → npm t
 | Upload limits | `UPLOAD_MAX_FILE_BYTES` / `UPLOAD_MAX_FILES` / `UPLOAD_MAX_FIELDS` / `UPLOAD_MAX_REQUEST_BYTES`; `multipartLimitMiddleware()` trả **413** trước khi multer buffer; mọi file endpoint dùng `buildMulterOptions()` (MIME allowlist) |
 | JWT algorithm | Production RS256-first (`JWT_PRIVATE_KEY`/`JWT_PUBLIC_KEY`); **HS256 bị chặn** trừ khi `JWT_ALLOW_HS256_IN_PRODUCTION=true` (có log cảnh báo). Logic tập trung ở `src/modules/auth/jwt.config.ts` |
 | Secret bắt buộc | `BANKING_WEBHOOK_SECRET`, `PAYMENT_WEBHOOK_SECRET` ≥ 32 ký tự khi `NODE_ENV=production`; `JWT_SECRET` ≥ 32 chỉ khi dùng HS256 (fail-closed) |
-| Supply chain | `npm run audit:gate` (CI) — **0 critical / 0 high** (9 moderate), allowlist rỗng; NestJS 11 + OTel 0.300, `overrides` multer 2.5 / glob 10.5. `bcrypt` → `bcryptjs` |
+| Supply chain | `npm run audit:gate` (CI) — **0 critical / 0 high** (5 moderate: swagger/js-yaml + glob/minimatch/typeorm), allowlist rỗng; NestJS 11 + OTel 0.300, `overrides` multer 2.5 / glob 10.5 / gaxios 7.3; `uuid` 11, `bcrypt` → `bcryptjs` |
 | Prod guards | Từ chối boot nếu `SKIP_STEP_UP=true` hoặc `ALLOW_MOCK_PAYMENTS=true`; cảnh báo khi thiếu `CORS_ORIGIN` |
 | Graceful shutdown | `app.enableShutdownHooks()` (SIGTERM/SIGINT) |
 | CORS | `CORS_ORIGIN` danh sách phẩy; production mà unset ⇒ CORS tắt |

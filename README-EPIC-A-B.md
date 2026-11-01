@@ -803,8 +803,8 @@ daily/monthly snapshots, dimension catalog, Prometheus, operator-tenant storage 
   replaced by `bcryptjs@3` — same `$2b$` hashes, so existing passwords keep working.
 - **`npm run audit:gate`** (also in CI after `npm ci`) fails on any critical/high advisory missing
   from `security/audit-allowlist.json`. Each entry carries `owner`, `mitigation`, `expiresOn`;
-  expired entries fail the gate. Current state: **0 critical / 0 high / 9 moderate** — the allowlist
-  is **empty**.
+  expired entries fail the gate. Current state: **0 critical / 0 high / 5 moderate**
+(`@nestjs/swagger`/`js-yaml` + `glob`/`minimatch`/`typeorm`) — the allowlist is **empty**.
 - **Dependency stack**: NestJS **11.2.x** (CommonJS), Swagger **11.4.x**, OTel **sdk-node 0.300**
   (+ auto-instrumentations 0.82), with `overrides` `multer ^2.5.0` / `glob ^10.5.0`. Nest **12** is
   intentionally deferred: it is pure ESM, so adopting it requires migrating the whole app, seeds and
