@@ -13,6 +13,7 @@ import { seedExecutiveMetrics } from './executive.seeder';
 import { seedRevenueSnapshot } from './revenue.seeder';
 import { seedHealthSignals } from './health.seeder';
 import { seedProductAnalytics } from './product-analytics.seeder';
+import { seedGrowthSnapshot } from './growth.seeder';
 import { seedMasterDataDefaults } from '../../modules/master-data/master-data.seeder';
 import { Tenant } from '../../modules/tenant/entities/tenant.entity';
 
@@ -68,6 +69,7 @@ async function run() {
     await seedRevenueSnapshot(dataSource);
     await seedHealthSignals(dataSource);
     await seedProductAnalytics(dataSource);
+    await seedGrowthSnapshot(dataSource);
   } finally {
     await dataSource.destroy();
   }

@@ -586,6 +586,61 @@ daily trends with growth/retention, Prometheus + audit + operator-scoped persist
 
 ---
 
+### D5 Growth Intelligence
+
+**Entities:** `growth_snapshots` (conversion metrics + funnel + source/plan breakdowns, unique per
+day+period), `growth_experiments` (A/B variants, samples, conversion %, uplift %, status, start/end),
+`growth_segments` (acquisition source / plan segment per period: tenants, trials, paid, MRR, share).
+
+**Metrics:**
+
+| Metric | Definition |
+|---|---|
+| Trial conversion | subscriptions converted TRIAL → ACTIVE in the window / trials created (audit + subscription fallback) |
+| Paid conversion | new ACTIVE subscriptions without trial / subscriptions created in the window |
+| Expansion rate | expansion revenue from plan upgrades / current MRR |
+| Upsell rate | tenants with an upgrade / paid tenants |
+| Activation rate | tenants with a login in the window / active tenants |
+| Onboarding success | completed onboardings / onboarding records |
+
+**Features & reports:**
+
+| Item | Definition |
+|---|---|
+| Growth dashboard | all metrics, totals, funnel, segments, experiment summary, latest snapshots |
+| Conversion funnel | `TENANTS → ACTIVATED → PAID → EXPANDED` counts + step conversion rates |
+| Acquisition sources | tenants/paid/MRR grouped by `tenants.settings.source` (fallback `UNKNOWN`) |
+| Plan upgrade funnel | upgrade/downgrade counts + plan→plan transitions with price delta |
+| Growth analysis | metrics + totals + onboarding + source breakdown |
+| Tenant growth | tenants, trials, paid, activated, upgrades and MRR totals |
+| Experiments | create/update A/B experiments, uplift = (B − A) / A, auto-ended on COMPLETED |
+
+**APIs (JWT + `admin.access` + platform operator):**
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/growth` | dashboard (metrics, funnel, segments, experiments, snapshots) |
+| GET | `/growth/funnel?days=` | conversion + plan upgrade funnel |
+| GET | `/growth/conversions?days=` | conversion metrics, totals, onboarding, sources |
+| GET | `/growth/segments?dimension=&period=` | SOURCE / PLAN segments |
+| GET/POST | `/growth/experiments` · PATCH `/growth/experiments/:id` | experiment lifecycle + uplift |
+| GET/POST | `/growth/snapshots` | generate/list snapshots (daily/monthly) |
+| GET | `/growth/metrics` | Prometheus gauges |
+
+**Storage & instrumentation:** snapshots are idempotent per `(tenant, snapshot_date, period)`; segments
+per `(tenant, dimension, key, period)`; experiments per `(tenant, name)`. Gauges: `growth_tenants`,
+`growth_activated_tenants`, `growth_paid_tenants`, `growth_trial_conversion_pct`,
+`growth_paid_conversion_pct`, `growth_expansion_rate_pct`, `growth_upsell_rate_pct`,
+`growth_activation_rate_pct`, `growth_onboarding_success_pct`; counters `growth_snapshots_total{period}`,
+`growth_experiments_total{status}`; audit `entity_type = growth`. Acquisition source is seeded as
+`direct` for the demo tenants (`TenantSettingsDto.source`).
+
+**Tests:** `growth-intelligence` (9) — operator gate, dashboard/funnel/segments, conversions + sources,
+persisted segments, experiment create/update + uplift, real plan upgrade/downgrade funnel (upsell,
+expansion), idempotent monthly/daily snapshots, Prometheus + audit + operator-scoped storage.
+
+---
+
 ### Shared Prometheus registry (observability)
 
 Every module now increments **one** `prom-client` registry (`src/common/metrics/metrics.service.ts`)

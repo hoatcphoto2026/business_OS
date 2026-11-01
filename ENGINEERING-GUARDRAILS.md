@@ -144,11 +144,21 @@ Thêm bảng/feature mới ⇒ cập nhật seeder tương ứng, đừng để 
 - `feature_trends` unique `(tenant, feature_key, period_date)`; `feature_adoption` unique
   `(tenant, feature_key, dimension, dimension_key, period)`. Audit `collect` cần `entity_id` thật.
 
+### 1.15 Growth intelligence (D5)
+- Growth metrics platform-wide → operator allowlist (`PLATFORM_ADMIN_EMAILS`); snapshot/experiment/segment
+  lưu dưới tenant operator, endpoint `/growth*` operator-only.
+- Trial/paid conversion lấy từ `audit_logs` (`Subscription` UPDATE: `old_data.status` → `new_data.status`)
+  và subscription `created_at`/`trial_end`; expansion/upsell lấy từ plan-price delta (audit old/new planCode).
+- Acquisition source dùng `tenants.settings.source` (seed `direct`), fallback `UNKNOWN`.
+- `growth_snapshots` unique `(tenant, date, period)`, `growth_segments` unique
+  `(tenant, dimension, key, period)`, `growth_experiments` unique `(tenant, name)`.
+- `changePlan` đổi từ enterprise → professional là **DOWNGRADE** (không phải upgrade) — test phải assert đúng chiều.
+
 ---
 
 ## 2. Definition of Done — verify trước khi báo "xong"
 
-- [ ] `npm run verify` → lint + build + unit + e2e isolated (baseline hiện tại: **50 suites / 253 tests PASS**)
+- [ ] `npm run verify` → lint + build + unit + e2e isolated (baseline hiện tại: **51 suites / 262 tests PASS**)
 - [ ] Sửa nhỏ thì chạy nhanh `npm run verify:fast` (lint + build + unit)
 - [ ] Muốn xem warning của lint: `npm run lint:check` (CI fail khi có **error**, warning không chặn)
 - [ ] Nếu chạm auth / guard / billing / seed: chạy lại với `NODE_ENV=test` (parity CI)

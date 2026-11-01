@@ -33,6 +33,10 @@ export class TenantSettingsDto {
 
   @IsString()
   @IsOptional()
+  source?: string; // acquisition source (direct, referral, ads, partner…) – growth analytics
+
+  @IsString()
+  @IsOptional()
   dateFormat?: string; // dd/MM/yyyy
 
   @IsBoolean()

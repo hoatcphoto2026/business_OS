@@ -79,6 +79,7 @@ export async function seedTenants(dataSource: DataSource): Promise<void> {
           currency: 'VND',
           language: 'vi',
           country: 'VN',
+          source: 'direct',
           dateFormat: 'dd/MM/yyyy',
           businessMode: true,
           accountingMode: false,
@@ -92,8 +93,13 @@ export async function seedTenants(dataSource: DataSource): Promise<void> {
     }
 
     // Idempotent backfill for databases seeded before `country` existed.
-    if (!t.settings?.country) {
-      t.settings = { ...(t.settings ?? {}), country: 'VN' };
+    const settings = t.settings ?? {};
+    if (!settings.country || !settings.source) {
+      t.settings = {
+        ...settings,
+        country: settings.country ?? 'VN',
+        source: settings.source ?? 'direct',
+      };
       t = await tenantRepo.save(t);
     }
     return t;
