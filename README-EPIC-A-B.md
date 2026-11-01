@@ -386,6 +386,55 @@ schedule create/update/run + next run, run history + metrics + audit, tenant iso
 
 ---
 
+### D1 Executive Metrics Platform
+
+**Entities:** `executive_metrics` (KPI cache: code, unit, current/previous value, change %, period),
+`executive_snapshots` (daily/monthly point-in-time KPIs + summary, unique per day+period),
+`metric_history` (time series per KPI for trends).
+
+**KPIs (12):**
+
+| Code | Formula |
+|---|---|
+| `MRR` | Σ active subscriptions normalised monthly (`YEARLY` → yearly price / 12) |
+| `ARR` | MRR × 12 |
+| `ARPU` | MRR / active subscriptions |
+| `LTV` | ARPU / monthly churn rate (24 × ARPU fallback when churn = 0) |
+| `CUSTOMER_COUNT` | tenants with status `active` or `trial` |
+| `ACTIVE_USERS` | distinct users with a login in the last 30 days |
+| `ACTIVE_TENANTS` | distinct tenants with a login in the last 30 days |
+| `TRIAL_CONVERSIONS` | active subscriptions whose `trial_end` fell in the last 30 days |
+| `PAID_CONVERSIONS` | active subscriptions without trial created in the last 30 days |
+| `REVENUE_GROWTH` | MRR vs the previous recorded MRR history point (%) |
+| `RETENTION_RATE` | active tenants with logins / customers × 100 |
+| `CHURN_RATE` | 100 − retention rate |
+
+**APIs (JWT + `admin.access` + platform operator):**
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/executive/metrics` | live KPIs + cached previous value / change % |
+| GET | `/executive/metrics/history?code=&period=&from=&to=` | daily/monthly time series |
+| GET | `/executive/metrics/prometheus` | Prometheus gauges (`executive_mrr`, `executive_arr`, …) |
+| GET | `/executive/dashboard` | KPIs + latest daily/monthly snapshot + MRR/tenant trends |
+| POST | `/executive/snapshots` | generate daily (default) or monthly snapshot |
+| GET | `/executive/snapshots?period=&limit=` | snapshot history |
+
+**Access model:** KPIs aggregate **all tenants**, so they are restricted to platform operators via
+`PLATFORM_ADMIN_EMAILS` (production empty list ⇒ endpoints disabled / fail-closed; dev+test fallback
+`admin@abctrading.vn`). A tenant owner with `admin.access` still gets 403.
+
+**Snapshots & scheduling:** `ExecutiveSnapshotJob` runs daily at 02:30 and monthly on the 1st at 03:15.
+Snapshots are idempotent per `(tenant, snapshot_date, period)`; `metric_history` is refreshed for the
+day so re-running a snapshot never duplicates trend points. Every snapshot writes `audit_logs`
+(`entity_type = executive_snapshot`) and increments `executive_snapshots_total{period}`.
+
+**Tests:** `executive-metrics` (7) — operator gate (401/403 for sales and tenant owner), 12 KPIs and
+formula consistency, idempotent daily snapshot + history rows, monthly snapshot + series,
+dashboard trends, snapshot list + Prometheus gauges, cached values + audit + operator-tenant storage.
+
+---
+
 ### Shared Prometheus registry (observability)
 
 Every module now increments **one** `prom-client` registry (`src/common/metrics/metrics.service.ts`)
