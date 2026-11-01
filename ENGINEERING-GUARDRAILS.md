@@ -154,6 +154,19 @@ Thêm bảng/feature mới ⇒ cập nhật seeder tương ứng, đừng để 
   `(tenant, dimension, key, period)`, `growth_experiments` unique `(tenant, name)`.
 - `changePlan` đổi từ enterprise → professional là **DOWNGRADE** (không phải upgrade) — test phải assert đúng chiều.
 
+### 1.16 Executive dashboard (D6)
+- `GET /executive/dashboard` là endpoint **superset**: giữ nguyên field D1 (`kpis`, `metrics`,
+  `latestDaily`, `latestMonthly`, `trends`) và thêm `widgets`, `alerts`, `summaries`, `meta`, `range`.
+  Không tạo route trùng; mọi thay đổi phải giữ test D1 xanh.
+- 7 widget cố định: `REVENUE | GROWTH | CUSTOMERS | COMPLIANCE | SECURITY | AUTOMATION | OPERATIONS`;
+  mỗi widget có `status` (`OK | WARNING | CRITICAL`), `primary`, `secondary`, `drilldown`.
+- Drill-down: `GET /executive/widgets/:key` trả widget + `details` (rows thật); key lạ → 404.
+- Alerts suy ra từ dữ liệu D1–D5 + bảng vận hành: `REVENUE_DROP` (MRR < -5% so snapshot trước),
+  `CHURN_SPIKE` (churn candidates ≥ max(1, 10% tenants)), `SECURITY_SPIKE` (open critical/high),
+  `SYSTEM_RISK` (past-due + failed onboarding + failed job). Không lưu bảng alert riêng.
+- Date range `from`/`to` (ISO) áp cho widget/alerts; `from > to` hoặc sai format → 400.
+- Toàn bộ `/executive/*` vẫn qua `PlatformOperatorGuard` + `PLATFORM_ADMIN_EMAILS`; non-operator → 403.
+
 ---
 
 ## 2. Definition of Done — verify trước khi báo "xong"

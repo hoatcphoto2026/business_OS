@@ -639,6 +639,51 @@ per `(tenant, dimension, key, period)`; experiments per `(tenant, name)`. Gauges
 persisted segments, experiment create/update + uplift, real plan upgrade/downgrade funnel (upsell,
 expansion), idempotent monthly/daily snapshots, Prometheus + audit + operator-scoped storage.
 
+
+### D6 Executive Dashboard
+
+**Goal:** one pane of glass for management — revenue, growth, customers, compliance, security,
+automation and operations on a single screen, with drill-down, filtering, date ranges and
+role-based (platform operator) access.
+
+**No new tables.** D6 composes D1–D5 services plus C5/C6/operations tables at request time, so the
+dashboard is always live and there is no snapshot to keep in sync.
+
+**Widgets (fixed set of 7):**
+
+| Widget | Primary | Secondary | CRITICAL / WARNING rule |
+|---|---|---|---|
+| REVENUE | MRR | ARR, MRR growth %, expansion revenue | MRR growth ≤ −20% / ≤ −5% |
+| GROWTH | activation rate | paid conversion, upsell, funnel conversion | < 40% / < 60% |
+| CUSTOMERS | active tenants | paid tenants, churn candidates, avg health | churn ratio ≥ 30% / any candidate |
+| COMPLIANCE | verified evidence | evidence, open critical/high risks | any critical / any high |
+| SECURITY | open security events | critical, high, failed logins | any critical / any high |
+| AUTOMATION | enabled jobs | scheduled jobs, failed executions, workflow instances | ≥ 5 failures / any failure |
+| OPERATIONS | active users | past-due subs, failed onboardings, system risks | ≥ 3 / ≥ 1 |
+
+**Executive alerts:** `REVENUE_DROP` (MRR vs previous recorded snapshot; WARNING ≤ −5%,
+CRITICAL ≤ −20%), `CHURN_SPIKE` (candidates ≥ max(1, 10% tenants); CRITICAL when ratio ≥ 30%),
+`SECURITY_SPIKE` (open critical/high; CRITICAL at ≥ 3 critical), `SYSTEM_RISK`
+(past-due + failed onboarding + failed job executions; CRITICAL at ≥ 3).
+
+**APIs (JWT + `admin.access` + platform operator):**
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/executive/dashboard` | superset: D1 KPIs/snapshots/trends + `widgets` + `alerts` + `summaries` + `range` + `meta` |
+| GET | `/executive/widgets?widgets=&from=&to=` | 7 widgets, filter by comma-separated keys |
+| GET | `/executive/widgets/:key` | drill-down: widget + underlying rows (revenue segments, at-risk tenants, events, risks, failures) |
+| GET | `/executive/alerts?type=&severity=&from=&to=` | alerts with filters; inverted/invalid range → 400 |
+
+**Access:** every route stays behind `PlatformOperatorGuard` (`PLATFORM_ADMIN_EMAILS`, dev fallback
+`admin@abctrading.vn`); non-admin role or non-operator tenant → 403. Response `meta` echoes
+`operatorOnly: true` and the caller role.
+
+**Tests:** `executive-dashboard` (8) — operator gate, dashboard superset (D1 fields intact + 7
+widgets + 4 alert types), widget filtering + drill-down links, alert filters (severity/type), date
+ranges + inverted range 400, revenue/customer drill-down, security/compliance/operations
+drill-down + unknown key 404, D1 endpoint regression (`/metrics`, `/metrics/history`, `/snapshots`).
+
 ---
 
 ### Shared Prometheus registry (observability)
